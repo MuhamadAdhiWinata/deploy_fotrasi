@@ -126,9 +126,14 @@ new #[Layout('layouts.app')] class extends Component
                 <h1 class="text-white text-lg font-extrabold uppercase">Data Siswa</h1>
                 <p class="text-white/70 text-xs font-bold">Kelola data siswa</p>
             </div>
-            <button wire:click="buatBaru" class="bg-accent text-dark border-3 border-dark px-4 py-2 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all">
-                + Tambah
-            </button>
+            <div class="flex gap-2">
+                <a href="{{ route('admin.siswa.import') }}" wire:navigate class="bg-white text-dark border-3 border-dark px-4 py-2 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all">
+                    Import
+                </a>
+                <button wire:click="buatBaru" class="bg-accent text-dark border-3 border-dark px-4 py-2 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all">
+                    + Tambah
+                </button>
+            </div>
         </div>
     </div>
 

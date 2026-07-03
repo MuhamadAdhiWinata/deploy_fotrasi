@@ -17,6 +17,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('admin')->name('admin.')->group(function () {
         Volt::route('/dashboard', 'pages.admin.dashboard')->name('dashboard');
         Volt::route('/siswa', 'pages.admin.siswa-index')->name('siswa');
+        Volt::route('/siswa/import', 'pages.admin.siswa-import')->name('siswa.import');
         Volt::route('/siswa/{nis}', 'pages.admin.siswa-detail')->name('siswa.detail');
         Volt::route('/presensi', 'pages.admin.presensi-index')->name('presensi');
         Volt::route('/tugas', 'pages.admin.tugas-index')->name('tugas');

@@ -15,7 +15,7 @@
             <div class="inline-block bg-highlight border-4 border-dark px-4 py-2 -rotate-1 mb-3">
                 <h1 class="text-2xl font-extrabold text-dark uppercase tracking-tight">FORTASI</h1>
             </div>
-            <p class="text-sm font-semibold text-dark/70">Forum Ta'aruf Siswa</p>
+            <p class="text-sm font-semibold text-dark/70">Forum Ta'aruf dan Orientasi</p>
         </div>
         {{ $slot }}
     </div>

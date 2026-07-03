@@ -124,7 +124,7 @@
                 </div>
                 <div>
                     <h2 class="font-extrabold text-dark uppercase text-sm leading-tight">Fortasi</h2>
-                    <p class="text-[10px] font-semibold text-dark/60">Forum Ta'aruf Siswa</p>
+                    <p class="text-[10px] font-semibold text-dark/60">Forum Ta'aruf dan Orientasi</p>
                 </div>
             </div>
             <nav class="flex-1 px-3 py-4 space-y-1">
