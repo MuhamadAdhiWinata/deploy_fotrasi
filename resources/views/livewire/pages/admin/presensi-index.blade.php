@@ -4,6 +4,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use App\Models\Presensi;
 use App\Models\User;
+use App\Models\Periode;
 
 new #[Layout('layouts.app')] class extends Component
 {
@@ -13,11 +14,14 @@ new #[Layout('layouts.app')] class extends Component
     public $detailSiswa = null;
     public $cari = '';
     public $filterKelas = '';
+    public $periodeId = '';
 
     public function mount()
     {
         $this->tanggal = today()->format('Y-m-d');
         $this->selectedTanggal = today();
+        $active = Periode::where('is_active', true)->first();
+        $this->periodeId = $active?->id ?? '';
         $this->loadPresensi();
     }
 
@@ -34,6 +38,7 @@ new #[Layout('layouts.app')] class extends Component
             ->when($this->filterKelas, fn($q) => $q->whereHas('user', fn($q) => $q->where('kelas', $this->filterKelas)))
             ->when($this->cari, fn($q) => $q->whereHas('user', fn($q) => $q->where('name', 'like', "%{$this->cari}%")
                 ->orWhere('kelas', 'like', "%{$this->cari}%")))
+            ->when($this->periodeId, fn($q) => $q->where('periode_id', $this->periodeId))
             ->latest()
             ->get();
     }
@@ -44,6 +49,11 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     public function updatedFilterKelas()
+    {
+        $this->loadPresensi();
+    }
+
+    public function updatedPeriodeId()
     {
         $this->loadPresensi();
     }
@@ -98,6 +108,14 @@ new #[Layout('layouts.app')] class extends Component
                     <option value="RPL">RPL</option>
                     <option value="DPIB">DPIB</option>
                     <option value="Animasi">Animasi</option>
+                </select>
+            </div>
+            <div>
+                <select wire:model.live="periodeId" class="border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
+                    <option value="">Semua Periode</option>
+                    @foreach (\App\Models\Periode::latest()->get() as $p)
+                        <option value="{{ $p->id }}">{{ $p->nama }}</option>
+                    @endforeach
                 </select>
             </div>
         </div>

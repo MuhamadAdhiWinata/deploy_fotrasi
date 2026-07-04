@@ -37,6 +37,7 @@ new #[Layout('layouts.app')] class extends Component
 
         Presensi::create([
             'user_id' => auth()->id(),
+            'periode_id' => auth()->user()->periode_id,
             'tanggal' => today(),
             'check_in' => now(),
             'foto_check_in' => $path,

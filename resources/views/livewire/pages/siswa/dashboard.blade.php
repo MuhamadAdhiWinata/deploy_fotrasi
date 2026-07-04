@@ -2,18 +2,58 @@
 
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use App\Models\Tugas;
+use App\Models\Presensi;
+use App\Models\Periode;
+use Carbon\Carbon;
 
 new #[Layout('layouts.app')] class extends Component
 {
     public $presensiHariIni = null;
     public $totalTugas = 0;
     public $tugasSelesai = 0;
+    public $persentasePresensi = 0;
+    public $persentaseTugas = 0;
 
     public function mount()
     {
-        $this->presensiHariIni = auth()->user()->presensis()->whereDate('tanggal', today())->first();
-        $this->totalTugas = \App\Models\Tugas::where('deadline', '>=', now())->count();
-        $this->tugasSelesai = auth()->user()->pengumpulanTugas()->count();
+        $user = auth()->user();
+        $periodeId = $user->periode_id;
+
+        $this->presensiHariIni = $user->presensis()->whereDate('tanggal', today())->first();
+
+        $now = now();
+        $this->totalTugas = Tugas::when($periodeId, fn($q) => $q->where('periode_id', $periodeId))
+            ->where(function ($q) use ($now) {
+                $q->whereNull('mulai')->orWhere('mulai', '<=', $now);
+            })
+            ->count();
+        $this->tugasSelesai = $user->pengumpulanTugas()->count();
+
+        // Attendance percentage
+        if ($periodeId) {
+            $periode = Periode::find($periodeId);
+            if ($periode) {
+                $start = Carbon::parse($periode->tanggal_mulai)->startOfDay();
+                $end = Carbon::parse($periode->tanggal_selesai)->endOfDay();
+                $today = now()->endOfDay();
+                $cutoff = $today->lessThan($end) ? $today : $end;
+
+                if ($cutoff->lessThan($start)) {
+                    $this->persentasePresensi = 0;
+                } else {
+                    $hariEvent = $start->diffInDays($cutoff) + 1;
+                    $hariHadir = Presensi::where('user_id', $user->id)
+                        ->whereBetween('tanggal', [$start, $cutoff])
+                        ->count();
+
+                    $this->persentasePresensi = $hariEvent > 0 ? round(($hariHadir / $hariEvent) * 100) : 0;
+                }
+            }
+        }
+
+        // Task percentage
+        $this->persentaseTugas = $this->totalTugas > 0 ? round(($this->tugasSelesai / $this->totalTugas) * 100) : 0;
     }
 }; ?>
 
@@ -32,49 +72,53 @@ new #[Layout('layouts.app')] class extends Component
         </div>
     </div>
 
-    {{-- Presensi Card --}}
-    <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-5 mb-5">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="font-extrabold text-dark uppercase text-sm">Presensi Hari Ini</h2>
-            <div class="w-3 h-3 rounded-full {{ $presensiHariIni ? 'bg-accent' : 'bg-red-400' }} border-2 border-dark"></div>
-        </div>
-        @if ($presensiHariIni)
-            <div class="space-y-2">
-                <div class="flex items-center gap-3">
-                    <span class="bg-accent border-2 border-dark px-2 py-0.5 text-xs font-bold">CHECK IN</span>
-                    <span class="font-bold text-sm">{{ $presensiHariIni->check_in ? $presensiHariIni->check_in->format('H:i') : '-' }}</span>
-                </div>
-                <div class="flex items-center gap-3">
-                    <span class="bg-highlight border-2 border-dark px-2 py-0.5 text-xs font-bold">CHECK OUT</span>
-                    <span class="font-bold text-sm">{{ $presensiHariIni->check_out ? $presensiHariIni->check_out->format('H:i') : 'Belum check out' }}</span>
-                </div>
+    {{-- Progress Cards --}}
+    <div class="grid grid-cols-2 gap-4 mb-5">
+        <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-4">
+            <div class="flex items-center gap-2 mb-2">
+                <div class="w-3 h-3 rounded-full {{ $presensiHariIni ? 'bg-accent' : 'bg-red-400' }} border-2 border-dark"></div>
+                <h2 class="font-extrabold text-dark uppercase text-xs">Presensi</h2>
             </div>
-        @else
-            <p class="text-sm font-semibold text-dark/60">Belum melakukan presensi hari ini</p>
-        @endif
-        @if (!$presensiHariIni)
-            <a href="{{ route('siswa.presensi') }}" wire:navigate class="mt-3 inline-block bg-secondary text-white border-3 border-dark px-4 py-1.5 text-xs font-bold uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all">
-                Presensi Sekarang
-            </a>
-        @endif
+            <div class="relative h-3 bg-dark/10 border-2 border-dark mb-2">
+                <div class="absolute inset-0 bg-accent transition-all duration-500" style="width: {{ $persentasePresensi }}%"></div>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="font-extrabold text-dark text-sm">{{ $persentasePresensi }}%</span>
+                @if ($presensiHariIni)
+                    <span class="text-[10px] font-bold text-dark/50">{{ $presensiHariIni->check_in->format('H:i') }}</span>
+                @else
+                    <span class="text-[10px] font-bold text-red-400">Belum</span>
+                @endif
+            </div>
+        </div>
+        <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-4">
+            <div class="flex items-center gap-2 mb-2">
+                <svg class="w-3.5 h-3.5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                <h2 class="font-extrabold text-dark uppercase text-xs">Tugas</h2>
+            </div>
+            <div class="relative h-3 bg-dark/10 border-2 border-dark mb-2">
+                <div class="absolute inset-0 bg-secondary transition-all duration-500" style="width: {{ $persentaseTugas }}%"></div>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="font-extrabold text-dark text-sm">{{ $persentaseTugas }}%</span>
+                <span class="text-[10px] font-bold text-dark/50">{{ $tugasSelesai }}/{{ $totalTugas }}</span>
+            </div>
+        </div>
     </div>
 
-    {{-- Tugas Card --}}
+    {{-- Quick Actions --}}
     <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-5">
-        <h2 class="font-extrabold text-dark uppercase text-sm mb-3">Ringkasan Tugas</h2>
+        <h2 class="font-extrabold text-dark uppercase text-sm mb-3">Aksi Cepat</h2>
         <div class="grid grid-cols-2 gap-3">
-            <div class="bg-highlight border-3 border-dark p-3 text-center">
-                <span class="block text-2xl font-extrabold text-dark">{{ $totalTugas }}</span>
-                <span class="text-[10px] font-bold uppercase text-dark/70">Total Tugas</span>
-            </div>
-            <div class="bg-accent border-3 border-dark p-3 text-center">
-                <span class="block text-2xl font-extrabold text-dark">{{ $tugasSelesai }}</span>
-                <span class="text-[10px] font-bold uppercase text-dark/70">Selesai</span>
-            </div>
+            <a href="{{ route('siswa.todo') }}" wire:navigate class="bg-secondary text-white border-3 border-dark p-3 text-center hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[3px_3px_0px_0px_#1a1a1a] transition-all">
+                <span class="block text-lg font-extrabold">📋</span>
+                <span class="text-[10px] font-bold uppercase">To Do</span>
+            </a>
+            <a href="{{ route('profile') }}" wire:navigate class="bg-highlight text-dark border-3 border-dark p-3 text-center hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[3px_3px_0px_0px_#1a1a1a] transition-all">
+                <span class="block text-lg font-extrabold">👤</span>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </a>
         </div>
-        <a href="{{ route('siswa.tugas') }}" wire:navigate class="mt-3 inline-block bg-primary text-white border-3 border-dark px-4 py-1.5 text-xs font-bold uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all">
-            Lihat Tugas
-        </a>
     </div>
 
     {{-- Logout Mobile --}}

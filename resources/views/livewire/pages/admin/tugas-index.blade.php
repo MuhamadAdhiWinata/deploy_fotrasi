@@ -3,6 +3,7 @@
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use App\Models\Tugas;
+use App\Models\Periode;
 
 new #[Layout('layouts.app')] class extends Component
 {
@@ -12,10 +13,14 @@ new #[Layout('layouts.app')] class extends Component
     public $cari = '';
     public $judul = '';
     public $deskripsi = '';
+    public $mulai = '';
     public $deadline = '';
+    public $periodeId = '';
 
     public function mount()
     {
+        $active = Periode::where('is_active', true)->first();
+        $this->periodeId = $active?->id ?? '';
         $this->loadTugas();
     }
 
@@ -23,6 +28,7 @@ new #[Layout('layouts.app')] class extends Component
     {
         $this->tugasList = Tugas::with('creator')
             ->when($this->cari, fn($q) => $q->where('judul', 'like', "%{$this->cari}%"))
+            ->when($this->periodeId, fn($q) => $q->where('periode_id', $this->periodeId))
             ->latest()
             ->get();
     }
@@ -32,9 +38,14 @@ new #[Layout('layouts.app')] class extends Component
         $this->loadTugas();
     }
 
+    public function updatedPeriodeId()
+    {
+        $this->loadTugas();
+    }
+
     public function resetForm()
     {
-        $this->reset(['judul', 'deskripsi', 'deadline', 'editId', 'showForm']);
+        $this->reset(['judul', 'deskripsi', 'mulai', 'deadline', 'editId', 'showForm']);
     }
 
     public function buatBaru()
@@ -49,6 +60,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->editId = $t->id;
         $this->judul = $t->judul;
         $this->deskripsi = $t->deskripsi;
+        $this->mulai = $t->mulai?->format('Y-m-d\TH:i') ?? '';
         $this->deadline = $t->deadline->format('Y-m-d\TH:i');
         $this->showForm = true;
     }
@@ -58,13 +70,16 @@ new #[Layout('layouts.app')] class extends Component
         $this->validate([
             'judul' => 'required|string|max:255',
             'deskripsi' => 'required|string',
+            'mulai' => 'nullable|date',
             'deadline' => 'required|date',
         ]);
 
         $data = [
             'judul' => $this->judul,
             'deskripsi' => $this->deskripsi,
+            'mulai' => $this->mulai ?: null,
             'deadline' => $this->deadline,
+            'periode_id' => $this->periodeId ?: null,
         ];
 
         if ($this->editId) {
@@ -108,6 +123,14 @@ new #[Layout('layouts.app')] class extends Component
             @if ($cari)
                 <button wire:click="$set('cari', '')" class="bg-red-500 text-white border-3 border-dark px-3 py-2 text-[10px] font-bold uppercase shadow-[2px_2px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">Reset</button>
             @endif
+            <div>
+                <select wire:model.live="periodeId" class="border-3 border-dark p-2.5 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
+                    <option value="">Semua Periode</option>
+                    @foreach (\App\Models\Periode::latest()->get() as $p)
+                        <option value="{{ $p->id }}">{{ $p->nama }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
     </div>
 
@@ -125,6 +148,11 @@ new #[Layout('layouts.app')] class extends Component
                     <x-input-label value="Deskripsi" />
                     <textarea wire:model="deskripsi" rows="4" class="w-full border-3 border-dark p-2 text-sm font-semibold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary"></textarea>
                     @error('deskripsi') <span class="text-xs font-bold text-red-500">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <x-input-label value="Mulai (opsional)" />
+                    <input type="datetime-local" wire:model="mulai" class="w-full border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary">
+                    @error('mulai') <span class="text-xs font-bold text-red-500">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <x-input-label value="Deadline" />
@@ -152,6 +180,9 @@ new #[Layout('layouts.app')] class extends Component
                         <p class="text-xs font-semibold text-dark/70 mb-2">{{ Str::limit($t->deskripsi, 150) }}</p>
                         <div class="flex items-center gap-3">
                             <span class="text-[10px] font-bold bg-highlight border-2 border-dark px-2 py-0.5">Deadline: {{ $t->deadline->format('d M Y H:i') }}</span>
+                            @if ($t->mulai)
+                                <span class="text-[10px] font-bold bg-secondary/20 border-2 border-dark px-2 py-0.5">Mulai: {{ $t->mulai->format('d M Y H:i') }}</span>
+                            @endif
                             <a href="{{ route('admin.tugas.pengumpulan', $t->id) }}" wire:navigate class="text-[10px] font-bold text-secondary underline underline-offset-2">
                                 Lihat Pengumpulan ({{ $t->pengumpulan()->count() }})
                             </a>

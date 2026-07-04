@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'nis', 'kelas', 'role'])]
+#[Fillable(['name', 'email', 'password', 'nis', 'kelas', 'role', 'periode_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -42,5 +42,10 @@ class User extends Authenticatable
     public function pengumpulanTugas()
     {
         return $this->hasMany(PengumpulanTugas::class);
+    }
+
+    public function periode()
+    {
+        return $this->belongsTo(Periode::class);
     }
 }

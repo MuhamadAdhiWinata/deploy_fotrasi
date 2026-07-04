@@ -9,8 +9,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Siswa routes
     Route::prefix('siswa')->name('siswa.')->group(function () {
         Volt::route('/dashboard', 'pages.siswa.dashboard')->name('dashboard');
-        Volt::route('/presensi', 'pages.siswa.presensi')->name('presensi');
-        Volt::route('/tugas', 'pages.siswa.tugas')->name('tugas');
+        Volt::route('/todo', 'pages.siswa.todo')->name('todo');
     });
 
     // Admin routes
@@ -19,6 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Volt::route('/siswa', 'pages.admin.siswa-index')->name('siswa');
         Volt::route('/siswa/import', 'pages.admin.siswa-import')->name('siswa.import');
         Volt::route('/siswa/{nis}', 'pages.admin.siswa-detail')->name('siswa.detail');
+        Volt::route('/periode', 'pages.admin.periode-index')->name('periode');
         Volt::route('/presensi', 'pages.admin.presensi-index')->name('presensi');
         Volt::route('/tugas', 'pages.admin.tugas-index')->name('tugas');
         Volt::route('/tugas/{id}/pengumpulan', 'pages.admin.tugas-pengumpulan')->name('tugas.pengumpulan');

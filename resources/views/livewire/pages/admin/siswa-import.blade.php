@@ -5,6 +5,7 @@ use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use App\Services\GeminiService;
 use App\Models\User;
+use App\Models\Periode;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -18,6 +19,13 @@ new #[Layout('layouts.app')] class extends Component
     public $success = false;
     public $error = null;
     public $importResults = [];
+    public $periodeId = '';
+
+    public function mount()
+    {
+        $active = Periode::where('is_active', true)->first();
+        $this->periodeId = $active?->id ?? '';
+    }
 
     public function identifikasi()
     {
@@ -87,7 +95,7 @@ new #[Layout('layouts.app')] class extends Component
                     $students[] = [
                         'name' => $name,
                         'nis' => $nis,
-                        'kelas' => $kelas,
+                        'kelas' => $this->normalizeKelas($kelas),
                     ];
                 }
             }
@@ -175,7 +183,7 @@ new #[Layout('layouts.app')] class extends Component
             }
 
             if (!empty($name) && !empty($nis)) {
-                $students[] = ['name' => $name, 'nis' => $nis, 'kelas' => $kelas];
+                $students[] = ['name' => $name, 'nis' => $nis, 'kelas' => $this->normalizeKelas($kelas)];
             }
         }
 
@@ -201,12 +209,47 @@ new #[Layout('layouts.app')] class extends Component
                 $kelas = $parts[2] ?? '';
 
                 if (!empty($name) && !empty($nis)) {
-                    $students[] = ['name' => $name, 'nis' => $nis, 'kelas' => $kelas];
+                    $students[] = ['name' => $name, 'nis' => $nis, 'kelas' => $this->normalizeKelas($kelas)];
                 }
             }
         }
 
         return $students;
+    }
+
+    protected function normalizeKelas(?string $kelas): string
+    {
+        if (empty($kelas)) return '';
+
+        $kelas = strtoupper(trim($kelas));
+        $kelas = preg_replace('/\s+/', ' ', $kelas);
+
+        $list = config('kelas.list');
+
+        if (in_array($kelas, $list)) return $kelas;
+
+        $inputNorm = str_replace(' ', '', $kelas);
+        foreach ($list as $valid) {
+            if (str_replace(' ', '', $valid) === $inputNorm) {
+                return $valid;
+            }
+        }
+
+        $prefix = explode(' ', $kelas)[0];
+        foreach ($list as $valid) {
+            if (explode(' ', $valid)[0] === $prefix && preg_match('/[A-D]/', $kelas, $m)) {
+                $candidate = $prefix . ' ' . $m[0];
+                if (in_array($candidate, $list)) return $candidate;
+            }
+        }
+
+        foreach ($list as $valid) {
+            if (stripos($valid, $kelas) !== false || stripos($kelas, $valid) !== false) {
+                return $valid;
+            }
+        }
+
+        return $kelas;
     }
 
     protected function extractWordText($path): string
@@ -279,7 +322,7 @@ new #[Layout('layouts.app')] class extends Component
         foreach ($this->previewData as $data) {
             $name = trim($data['name'] ?? '');
             $nis = trim($data['nis'] ?? '');
-            $kelas = trim($data['kelas'] ?? '');
+            $kelas = $this->normalizeKelas($data['kelas'] ?? '');
 
             if (empty($name) || empty($nis)) {
                 $errors[] = "Data tidak lengkap: {$name} - {$nis}";
@@ -288,6 +331,11 @@ new #[Layout('layouts.app')] class extends Component
 
             if (User::where('nis', $nis)->exists()) {
                 $errors[] = "NIS {$nis} sudah terdaftar ({$name})";
+                continue;
+            }
+
+            if (!empty($kelas) && !in_array($kelas, config('kelas.list'))) {
+                $errors[] = "Kelas tidak valid untuk {$name} ({$kelas})";
                 continue;
             }
 
@@ -302,6 +350,7 @@ new #[Layout('layouts.app')] class extends Component
                 'kelas' => $kelas,
                 'password' => Hash::make($password),
                 'role' => 'siswa',
+                'periode_id' => $this->periodeId ?: null,
             ]);
 
             $imported++;

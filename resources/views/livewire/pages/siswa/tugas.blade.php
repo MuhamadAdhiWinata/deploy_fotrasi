@@ -23,7 +23,10 @@ new #[Layout('layouts.app')] class extends Component
 
     public function loadTugas()
     {
-        $this->tugasList = Tugas::latest()->get();
+        $periodeId = auth()->user()->periode_id;
+        $this->tugasList = Tugas::when($periodeId, fn($q) => $q->where('periode_id', $periodeId))
+            ->latest()
+            ->get();
     }
 
     public function pilihTugas($id)

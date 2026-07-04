@@ -5,22 +5,27 @@ use Livewire\Volt\Component;
 use App\Models\User;
 use App\Models\Presensi;
 use App\Models\PengumpulanTugas;
+use App\Models\Periode;
 
 new #[Layout('layouts.app')] class extends Component
 {
     public $siswa;
     public $presensiList;
     public $tugasList;
+    public $periodeId = '';
 
     public function mount($nis)
     {
         $this->siswa = User::where('role', 'siswa')->where('nis', $nis)->firstOrFail();
+        $active = Periode::where('is_active', true)->first();
+        $this->periodeId = $active?->id ?? $this->siswa->periode_id;
         $this->loadData();
     }
 
     public function loadData()
     {
         $this->presensiList = Presensi::where('user_id', $this->siswa->id)
+            ->when($this->periodeId, fn($q) => $q->where('periode_id', $this->periodeId))
             ->with('user')
             ->latest('tanggal')
             ->limit(30)

@@ -41,6 +41,7 @@
                     <x-nav-link :href="route('admin.siswa')" :active="request()->routeIs('admin.siswa*')" wire:navigate>Siswa</x-nav-link>
                     <x-nav-link :href="route('admin.presensi')" :active="request()->routeIs('admin.presensi*')" wire:navigate>Presensi</x-nav-link>
                     <x-nav-link :href="route('admin.tugas')" :active="request()->routeIs('admin.tugas*')" wire:navigate>Tugas</x-nav-link>
+                    <x-nav-link :href="route('admin.periode')" :active="request()->routeIs('admin.periode*')" wire:navigate>Periode</x-nav-link>
                     <x-nav-link :href="route('profile')" :active="request()->routeIs('profile')" wire:navigate>Profile</x-nav-link>
                 </nav>
                 <div class="mt-6 pt-6 border-t-4 border-dark">
@@ -75,6 +76,7 @@
                 <x-nav-link :href="route('admin.siswa')" :active="request()->routeIs('admin.siswa*')" wire:navigate>Siswa</x-nav-link>
                 <x-nav-link :href="route('admin.presensi')" :active="request()->routeIs('admin.presensi*')" wire:navigate>Presensi</x-nav-link>
                 <x-nav-link :href="route('admin.tugas')" :active="request()->routeIs('admin.tugas*')" wire:navigate>Tugas</x-nav-link>
+                <x-nav-link :href="route('admin.periode')" :active="request()->routeIs('admin.periode*')" wire:navigate>Periode</x-nav-link>
                 <x-nav-link :href="route('profile')" :active="request()->routeIs('profile')" wire:navigate>Profile</x-nav-link>
             </nav>
             <div class="p-4 border-t-4 border-dark">
@@ -101,13 +103,9 @@
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     <span class="text-[10px] font-bold uppercase">Beranda</span>
                 </a>
-                <a href="{{ route('siswa.presensi') }}" wire:navigate class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('siswa.presensi*') ? 'text-primary' : 'text-dark/50' }}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span class="text-[10px] font-bold uppercase">Presensi</span>
-                </a>
-                <a href="{{ route('siswa.tugas') }}" wire:navigate class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('siswa.tugas*') ? 'text-primary' : 'text-dark/50' }}">
+                <a href="{{ route('siswa.todo') }}" wire:navigate class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('siswa.todo*') ? 'text-primary' : 'text-dark/50' }}">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-                    <span class="text-[10px] font-bold uppercase">Tugas</span>
+                    <span class="text-[10px] font-bold uppercase">To Do</span>
                 </a>
                 <a href="{{ route('profile') }}" wire:navigate class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('profile') ? 'text-primary' : 'text-dark/50' }}">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -129,8 +127,7 @@
             </div>
             <nav class="flex-1 px-3 py-4 space-y-1">
                 <x-nav-link :href="route('siswa.dashboard')" :active="request()->routeIs('siswa.dashboard')" wire:navigate>Beranda</x-nav-link>
-                <x-nav-link :href="route('siswa.presensi')" :active="request()->routeIs('siswa.presensi*')" wire:navigate>Presensi</x-nav-link>
-                <x-nav-link :href="route('siswa.tugas')" :active="request()->routeIs('siswa.tugas*')" wire:navigate>Tugas</x-nav-link>
+                <x-nav-link :href="route('siswa.todo')" :active="request()->routeIs('siswa.todo*')" wire:navigate>To Do</x-nav-link>
                 <x-nav-link :href="route('profile')" :active="request()->routeIs('profile')" wire:navigate>Profile</x-nav-link>
             </nav>
             <div class="p-4 border-t-4 border-dark">

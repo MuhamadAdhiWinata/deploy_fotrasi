@@ -3,6 +3,7 @@
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use App\Models\User;
+use App\Models\Periode;
 use Illuminate\Support\Facades\Hash;
 
 new #[Layout('layouts.app')] class extends Component
@@ -12,6 +13,7 @@ new #[Layout('layouts.app')] class extends Component
     public $editId = null;
     public $cari = '';
     public $filterKelas = '';
+    public $filterPeriode = '';
 
     // Form fields
     public $name = '';
@@ -19,9 +21,12 @@ new #[Layout('layouts.app')] class extends Component
     public $nis = '';
     public $kelas = '';
     public $password = '';
+    public $periode_id = '';
 
     public function mount()
     {
+        $active = Periode::where('is_active', true)->first();
+        $this->filterPeriode = $active?->id ?? '';
         $this->loadSiswa();
     }
 
@@ -34,6 +39,7 @@ new #[Layout('layouts.app')] class extends Component
                   ->orWhere('nis', 'like', "%{$this->cari}%")
                   ->orWhere('kelas', 'like', "%{$this->cari}%");
             }))
+            ->when($this->filterPeriode, fn($q) => $q->where('periode_id', $this->filterPeriode))
             ->orderBy('name')
             ->get();
     }
@@ -48,9 +54,14 @@ new #[Layout('layouts.app')] class extends Component
         $this->loadSiswa();
     }
 
+    public function updatedFilterPeriode()
+    {
+        $this->loadSiswa();
+    }
+
     public function resetForm()
     {
-        $this->reset(['name', 'email', 'nis', 'kelas', 'password', 'editId', 'showForm']);
+        $this->reset(['name', 'email', 'nis', 'kelas', 'password', 'editId', 'showForm', 'periode_id']);
     }
 
     public function buatBaru()
@@ -67,6 +78,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->email = $siswa->email;
         $this->nis = $siswa->nis;
         $this->kelas = $siswa->kelas;
+        $this->periode_id = $siswa->periode_id;
         $this->password = '';
         $this->showForm = true;
     }
@@ -94,6 +106,7 @@ new #[Layout('layouts.app')] class extends Component
             'nis' => $this->nis,
             'kelas' => $this->kelas,
             'role' => 'siswa',
+            'periode_id' => $this->periode_id ?: null,
         ];
 
         if ($this->password) {
@@ -169,6 +182,14 @@ new #[Layout('layouts.app')] class extends Component
                     <option value="Animasi">Animasi</option>
                 </select>
             </div>
+            <div>
+                <select wire:model.live="filterPeriode" class="border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
+                    <option value="">Semua Periode</option>
+                    @foreach (\App\Models\Periode::latest()->get() as $p)
+                        <option value="{{ $p->id }}">{{ $p->nama }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
     </div>
 
@@ -214,6 +235,16 @@ new #[Layout('layouts.app')] class extends Component
                             <option value="Animasi">Animasi</option>
                         </select>
                         @error('kelas') <span class="text-xs font-bold text-red-500">{{ $message }}</span> @enderror
+                    </div>
+                    <div>
+                        <x-input-label value="Periode" />
+                        <select wire:model="periode_id" class="w-full border-3 border-dark p-2.5 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
+                            <option value="">Pilih Periode</option>
+                            @foreach (\App\Models\Periode::latest()->get() as $p)
+                                <option value="{{ $p->id }}">{{ $p->nama }}</option>
+                            @endforeach
+                        </select>
+                        @error('periode_id') <span class="text-xs font-bold text-red-500">{{ $message }}</span> @enderror
                     </div>
                     <div class="sm:col-span-2">
                         <x-input-label value="Password {{ $editId ? '(kosongkan jika tidak diubah)' : '' }}" />
