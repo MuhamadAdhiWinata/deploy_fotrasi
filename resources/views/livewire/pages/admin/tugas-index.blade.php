@@ -2,15 +2,21 @@
 
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use Livewire\WithPagination;
 use App\Models\Tugas;
 use App\Models\Periode;
 
 new #[Layout('layouts.app')] class extends Component
 {
-    public $tugasList;
+    use WithPagination;
+    public $tugasList = [];
+    protected $tugasPaginator;
     public $showForm = false;
     public $editId = null;
     public $cari = '';
+    public $showFilters = false;
+    public $tempCari = '';
+    public $tempPeriodeId = '';
     public $judul = '';
     public $deskripsi = '';
     public $mulai = '';
@@ -26,20 +32,23 @@ new #[Layout('layouts.app')] class extends Component
 
     public function loadTugas()
     {
-        $this->tugasList = Tugas::with('creator')
+        $this->tugasPaginator = Tugas::with('creator')
             ->when($this->cari, fn($q) => $q->where('judul', 'like', "%{$this->cari}%"))
             ->when($this->periodeId, fn($q) => $q->where('periode_id', $this->periodeId))
             ->latest()
-            ->get();
+            ->paginate(10);
+        $this->tugasList = $this->tugasPaginator->items();
     }
 
     public function updatedCari()
     {
+        $this->resetPage();
         $this->loadTugas();
     }
 
     public function updatedPeriodeId()
     {
+        $this->resetPage();
         $this->loadTugas();
     }
 
@@ -98,6 +107,33 @@ new #[Layout('layouts.app')] class extends Component
         Tugas::findOrFail($id)->delete();
         $this->loadTugas();
     }
+
+    public function bukaFilter()
+    {
+        $this->tempCari = $this->cari;
+        $this->tempPeriodeId = $this->periodeId;
+        $this->showFilters = true;
+    }
+
+    public function terapkanFilter()
+    {
+        $this->cari = $this->tempCari;
+        $this->periodeId = $this->tempPeriodeId;
+        $this->showFilters = false;
+        $this->resetPage();
+        $this->loadTugas();
+    }
+
+    public function batalFilter()
+    {
+        $this->showFilters = false;
+    }
+
+    public function resetFilterMobile()
+    {
+        $this->tempCari = '';
+        $this->tempPeriodeId = '';
+    }
 }; ?>
 
 <div>
@@ -107,14 +143,20 @@ new #[Layout('layouts.app')] class extends Component
                 <h1 class="text-white text-lg font-extrabold uppercase">Kelola Tugas</h1>
                 <p class="text-white/70 text-xs font-bold">Buat & kelola tugas orientasi</p>
             </div>
-            <button wire:click="buatBaru" class="bg-accent text-dark border-3 border-dark px-4 py-2 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all">
+            <button wire:click="buatBaru" class="bg-accent text-dark border-3 border-dark px-4 py-2 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all max-lg:hidden">
                 + Tugas
             </button>
         </div>
     </div>
 
-    {{-- Search --}}
-    <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-4 mb-6">
+    {{-- Filter button (mobile only) --}}
+    <button wire:click="bukaFilter" class="lg:hidden bg-white border-3 border-dark p-2.5 w-full mb-3 font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+        Filter
+    </button>
+
+    {{-- Search (desktop only) --}}
+    <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-4 mb-6 hidden lg:block">
         <div class="flex items-center gap-3">
             <div class="bg-dark border-3 border-dark p-2 flex items-center justify-center">
                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -133,6 +175,43 @@ new #[Layout('layouts.app')] class extends Component
             </div>
         </div>
     </div>
+
+    {{-- Filter Overlay (mobile) --}}
+    @if ($showFilters)
+        <div class="fixed inset-0 z-40 bg-black/50 lg:hidden" wire:click="batalFilter"></div>
+        <div class="fixed inset-0 z-50 bg-white border-4 border-dark overflow-y-auto lg:hidden">
+            <div class="bg-primary border-b-4 border-dark p-4 flex items-center justify-between sticky top-0 z-10">
+                <h2 class="text-white font-extrabold text-sm uppercase flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                    Filter
+                </h2>
+                <button wire:click="batalFilter" class="text-white font-bold text-xs border-2 border-white px-2 py-1 hover:bg-white hover:text-primary transition-colors">Tutup</button>
+            </div>
+            <div class="p-5 space-y-5">
+                <div>
+                    <x-input-label value="Cari" />
+                    <input type="text" wire:model="tempCari" placeholder="Cari tugas berdasarkan judul..." class="w-full border-3 border-dark p-2.5 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <x-input-label value="Periode" />
+                    <select wire:model="tempPeriodeId" class="w-full border-3 border-dark p-2.5 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
+                        <option value="">Semua Periode</option>
+                        @foreach (\App\Models\Periode::latest()->get() as $p)
+                            <option value="{{ $p->id }}">{{ $p->nama }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="border-t-4 border-dark p-4 flex gap-3 sticky bottom-0 bg-white">
+                <button wire:click="resetFilterMobile" class="flex-1 bg-red-500 text-white border-3 border-dark py-3 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+                    Reset
+                </button>
+                <button wire:click="terapkanFilter" class="flex-1 bg-accent text-dark border-3 border-dark py-3 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+                    Terapkan
+                </button>
+            </div>
+        </div>
+    @endif
 
     {{-- Form --}}
     @if ($showForm)
@@ -169,7 +248,7 @@ new #[Layout('layouts.app')] class extends Component
 
     {{-- Tugas List --}}
     <div class="space-y-4">
-        @forelse ($tugasList as $t)
+        @forelse ($this->tugasList as $t)
             <div class="bg-white border-4 border-dark shadow-[5px_5px_0px_0px_#1a1a1a] p-5">
                 <div class="flex items-start justify-between gap-3">
                     <div class="flex-1 min-w-0">
@@ -203,5 +282,15 @@ new #[Layout('layouts.app')] class extends Component
                 <p class="font-bold text-dark/50">Belum ada tugas. Klik "+ Tugas" untuk membuat.</p>
             </div>
         @endforelse
+        @if ($this->tugasPaginator)
+            {{ $this->tugasPaginator->links() }}
+        @endif
+
+        {{-- FAB --}}
+        @if (!$showForm)
+            <button wire:click="buatBaru" class="fixed bottom-6 right-6 z-50 w-14 h-14 bg-accent border-3 border-dark shadow-[4px_4px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_#1a1a1a] transition-all flex items-center justify-center text-dark font-extrabold text-2xl lg:hidden">
+                +
+            </button>
+        @endif
     </div>
 </div>

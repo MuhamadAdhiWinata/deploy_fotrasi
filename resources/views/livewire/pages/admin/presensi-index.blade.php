@@ -2,19 +2,27 @@
 
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use Livewire\WithPagination;
 use App\Models\Presensi;
 use App\Models\User;
 use App\Models\Periode;
 
 new #[Layout('layouts.app')] class extends Component
 {
-    public $presensiList;
+    use WithPagination;
+    public $presensiList = [];
+    protected $presensiPaginator;
     public $tanggal;
     public $selectedTanggal;
     public $detailSiswa = null;
     public $cari = '';
     public $filterKelas = '';
     public $periodeId = '';
+    public $showFilters = false;
+    public $tempTanggal;
+    public $tempCari = '';
+    public $tempFilterKelas = '';
+    public $tempPeriodeId = '';
 
     public function mount()
     {
@@ -27,34 +35,39 @@ new #[Layout('layouts.app')] class extends Component
 
     public function updatedTanggal($value)
     {
+        $this->resetPage();
         $this->selectedTanggal = $value ? \Carbon\Carbon::parse($value) : today();
         $this->loadPresensi();
     }
 
     public function loadPresensi()
     {
-        $this->presensiList = Presensi::whereDate('tanggal', $this->selectedTanggal)
+        $this->presensiPaginator = Presensi::whereDate('tanggal', $this->selectedTanggal)
             ->with('user')
             ->when($this->filterKelas, fn($q) => $q->whereHas('user', fn($q) => $q->where('kelas', $this->filterKelas)))
             ->when($this->cari, fn($q) => $q->whereHas('user', fn($q) => $q->where('name', 'like', "%{$this->cari}%")
                 ->orWhere('kelas', 'like', "%{$this->cari}%")))
             ->when($this->periodeId, fn($q) => $q->where('periode_id', $this->periodeId))
             ->latest()
-            ->get();
+            ->paginate(12);
+        $this->presensiList = $this->presensiPaginator->items();
     }
 
     public function updatedCari()
     {
+        $this->resetPage();
         $this->loadPresensi();
     }
 
     public function updatedFilterKelas()
     {
+        $this->resetPage();
         $this->loadPresensi();
     }
 
     public function updatedPeriodeId()
     {
+        $this->resetPage();
         $this->loadPresensi();
     }
 
@@ -67,6 +80,40 @@ new #[Layout('layouts.app')] class extends Component
     {
         $this->detailSiswa = null;
     }
+
+    public function bukaFilter()
+    {
+        $this->tempTanggal = $this->tanggal;
+        $this->tempCari = $this->cari;
+        $this->tempFilterKelas = $this->filterKelas;
+        $this->tempPeriodeId = $this->periodeId;
+        $this->showFilters = true;
+    }
+
+    public function terapkanFilter()
+    {
+        $this->tanggal = $this->tempTanggal;
+        $this->selectedTanggal = $this->tempTanggal ? \Carbon\Carbon::parse($this->tempTanggal) : today();
+        $this->cari = $this->tempCari;
+        $this->filterKelas = $this->tempFilterKelas;
+        $this->periodeId = $this->tempPeriodeId;
+        $this->showFilters = false;
+        $this->resetPage();
+        $this->loadPresensi();
+    }
+
+    public function batalFilter()
+    {
+        $this->showFilters = false;
+    }
+
+    public function resetFilterMobile()
+    {
+        $this->tempTanggal = today()->format('Y-m-d');
+        $this->tempCari = '';
+        $this->tempFilterKelas = '';
+        $this->tempPeriodeId = '';
+    }
 }; ?>
 
 <div>
@@ -75,7 +122,14 @@ new #[Layout('layouts.app')] class extends Component
         <p class="text-white/70 text-xs font-bold">Rekap presensi harian</p>
     </div>
 
-    <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-4 mb-6">
+    {{-- Filter button (mobile only) --}}
+    <button wire:click="bukaFilter" class="lg:hidden bg-white border-3 border-dark p-2.5 w-full mb-3 font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+        Filter
+    </button>
+
+    {{-- Search & Filter (desktop only) --}}
+    <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-4 mb-6 hidden lg:block">
         <div class="flex flex-col sm:flex-row gap-3">
             <div class="flex items-center gap-3">
                 <x-input-label value="Tanggal" />
@@ -121,6 +175,68 @@ new #[Layout('layouts.app')] class extends Component
         </div>
     </div>
 
+    {{-- Filter Overlay (mobile) --}}
+    @if ($showFilters)
+        <div class="fixed inset-0 z-40 bg-black/50 lg:hidden" wire:click="batalFilter"></div>
+        <div class="fixed inset-0 z-50 bg-white border-4 border-dark overflow-y-auto lg:hidden">
+            <div class="bg-primary border-b-4 border-dark p-4 flex items-center justify-between sticky top-0 z-10">
+                <h2 class="text-white font-extrabold text-sm uppercase flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                    Filter
+                </h2>
+                <button wire:click="batalFilter" class="text-white font-bold text-xs border-2 border-white px-2 py-1 hover:bg-white hover:text-primary transition-colors">Tutup</button>
+            </div>
+            <div class="p-5 space-y-5">
+                <div>
+                    <x-input-label value="Tanggal" />
+                    <input type="date" wire:model="tempTanggal" class="w-full border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <x-input-label value="Cari" />
+                    <input type="text" wire:model="tempCari" placeholder="Cari nama atau kelas..." class="w-full border-3 border-dark p-2.5 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <x-input-label value="Kelas" />
+                    <select wire:model="tempFilterKelas" class="w-full border-3 border-dark p-2.5 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
+                        <option value="">Semua Kelas</option>
+                        <optgroup label="TSM">
+                            <option value="TSM A">TSM A</option>
+                            <option value="TSM B">TSM B</option>
+                            <option value="TSM C">TSM C</option>
+                        </optgroup>
+                        <optgroup label="TKR">
+                            <option value="TKR A">TKR A</option>
+                            <option value="TKR B">TKR B</option>
+                            <option value="TKR C">TKR C</option>
+                            <option value="TKR D">TKR D</option>
+                        </optgroup>
+                        <option value="PBS">PBS</option>
+                        <option value="RPL">RPL</option>
+                        <option value="DPIB">DPIB</option>
+                        <option value="Animasi">Animasi</option>
+                    </select>
+                </div>
+                <div>
+                    <x-input-label value="Periode" />
+                    <select wire:model="tempPeriodeId" class="w-full border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
+                        <option value="">Semua Periode</option>
+                        @foreach (\App\Models\Periode::latest()->get() as $p)
+                            <option value="{{ $p->id }}">{{ $p->nama }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="border-t-4 border-dark p-4 flex gap-3 sticky bottom-0 bg-white">
+                <button wire:click="resetFilterMobile" class="flex-1 bg-red-500 text-white border-3 border-dark py-3 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+                    Reset
+                </button>
+                <button wire:click="terapkanFilter" class="flex-1 bg-accent text-dark border-3 border-dark py-3 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+                    Terapkan
+                </button>
+            </div>
+        </div>
+    @endif
+
     @if ($detailSiswa)
         {{-- Detail Siswa --}}
         <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-5 mb-6">
@@ -163,13 +279,13 @@ new #[Layout('layouts.app')] class extends Component
                 Presensi Tanggal {{ $selectedTanggal->format('d/m/Y') }}
             </h2>
 
-            @if ($presensiList->isEmpty())
+            @if (count($this->presensiList) === 0)
                 <div class="text-center py-8">
                     <p class="font-bold text-dark/50">Belum ada data presensi untuk tanggal ini</p>
                 </div>
             @else
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    @foreach ($presensiList as $p)
+                    @foreach ($this->presensiList as $p)
                         <div class="bg-white border-3 border-dark shadow-[4px_4px_0px_0px_#1a1a1a] p-4">
                             <div class="flex items-center gap-3 mb-3">
                                 <div class="w-10 h-10 bg-secondary border-3 border-dark flex items-center justify-center text-white font-extrabold text-sm shrink-0">
@@ -219,6 +335,10 @@ new #[Layout('layouts.app')] class extends Component
                         </div>
                     @endforeach
                 </div>
+
+                @if ($this->presensiPaginator)
+                    {{ $this->presensiPaginator->links() }}
+                @endif
             @endif
         </div>
     @endif

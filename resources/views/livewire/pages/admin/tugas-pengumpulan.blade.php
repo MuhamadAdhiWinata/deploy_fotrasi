@@ -2,13 +2,16 @@
 
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use Livewire\WithPagination;
 use App\Models\Tugas;
 use App\Models\PengumpulanTugas;
 
 new #[Layout('layouts.app')] class extends Component
 {
+    use WithPagination;
     public $tugas;
-    public $pengumpulanList;
+    public $pengumpulanList = [];
+    protected $pengumpulanPaginator;
     public $nilaiInput = [];
     public $selectedId = null;
 
@@ -20,10 +23,11 @@ new #[Layout('layouts.app')] class extends Component
 
     public function loadPengumpulan()
     {
-        $this->pengumpulanList = PengumpulanTugas::where('tugas_id', $this->tugas->id)
+        $this->pengumpulanPaginator = PengumpulanTugas::where('tugas_id', $this->tugas->id)
             ->with('user')
             ->latest()
-            ->get();
+            ->paginate(10);
+        $this->pengumpulanList = $this->pengumpulanPaginator->items();
 
         foreach ($this->pengumpulanList as $p) {
             $this->nilaiInput[$p->id] = $p->nilai ?? '';
@@ -125,7 +129,10 @@ new #[Layout('layouts.app')] class extends Component
     @endif
 
     {{-- Daftar Pengumpulan --}}
-    @forelse ($pengumpulanList as $p)
+    @if ($this->pengumpulanPaginator)
+        {{ $this->pengumpulanPaginator->links() }}
+    @endif
+    @forelse ($this->pengumpulanList as $p)
         <div class="bg-white border-4 border-dark shadow-[5px_5px_0px_0px_#1a1a1a] p-4 mb-4 hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[3px_3px_0px_0px_#1a1a1a] transition-all">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-3 min-w-0">
@@ -161,4 +168,7 @@ new #[Layout('layouts.app')] class extends Component
             <p class="font-bold text-dark/50">Belum ada pengumpulan</p>
         </div>
     @endforelse
+    @if ($this->pengumpulanPaginator)
+        {{ $this->pengumpulanPaginator->links() }}
+    @endif
 </div>

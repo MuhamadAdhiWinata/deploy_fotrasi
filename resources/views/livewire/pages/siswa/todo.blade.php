@@ -3,13 +3,14 @@
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 use App\Models\Presensi;
 use App\Models\Tugas;
 use App\Models\PengumpulanTugas;
 
 new #[Layout('layouts.app')] class extends Component
 {
-    use WithFileUploads;
+    use WithFileUploads, WithPagination;
 
     // Presensi
     public $presensiHariIni = null;
@@ -18,7 +19,8 @@ new #[Layout('layouts.app')] class extends Component
     public $riwayat;
 
     // Tugas
-    public $tugasList;
+    public $tugasList = [];
+    protected $tugasPaginator;
     public $tugasDipilih = null;
     public $pengumpulan = null;
     public $file;
@@ -50,12 +52,13 @@ new #[Layout('layouts.app')] class extends Component
     {
         $periodeId = auth()->user()->periode_id;
         $now = now();
-        $this->tugasList = Tugas::when($periodeId, fn($q) => $q->where('periode_id', $periodeId))
+        $this->tugasPaginator = Tugas::when($periodeId, fn($q) => $q->where('periode_id', $periodeId))
             ->where(function ($q) use ($now) {
                 $q->whereNull('mulai')->orWhere('mulai', '<=', $now);
             })
             ->latest()
-            ->get();
+            ->paginate(10);
+        $this->tugasList = $this->tugasPaginator->items();
     }
 
     // Presensi actions
@@ -285,7 +288,10 @@ new #[Layout('layouts.app')] class extends Component
         @else
             {{-- Daftar Tugas --}}
             <div class="space-y-2">
-                @forelse ($tugasList as $tugas)
+                @if ($this->tugasPaginator)
+                    {{ $this->tugasPaginator->links() }}
+                @endif
+                @forelse ($this->tugasList as $tugas)
                     @php $sudah = $tugas->pengumpulan()->where('user_id', auth()->id())->first(); @endphp
                     <button wire:click="pilihTugas({{ $tugas->id }})" class="w-full text-left border-3 border-dark p-3 hover:bg-gray-50 transition-colors shadow-[3px_3px_0px_0px_#1a1a1a] hover:shadow-[1px_1px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
                         <div class="flex items-center gap-3">
@@ -310,6 +316,9 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
                 @endforelse
             </div>
+            @if ($this->tugasPaginator)
+                {{ $this->tugasPaginator->links() }}
+            @endif
         @endif
     </div>
 </div>
