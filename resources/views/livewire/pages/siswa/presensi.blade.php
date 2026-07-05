@@ -98,12 +98,13 @@ new #[Layout('layouts.app')] class extends Component
                            class="block w-full text-sm font-semibold file:mr-4 file:py-2 file:px-4 file:border-3 file:border-dark file:bg-highlight file:text-dark file:font-bold file:text-xs file:uppercase file:cursor-pointer file:hover:bg-highlight/80">
                     @error('foto') <span class="text-xs font-bold text-red-500 block mt-1">{{ $message }}</span> @enderror
                     <p class="text-[10px] font-semibold text-dark/50 mt-1">Ambil foto sebagai bukti presensi</p>
-                    <p wire:loading wire:target="foto" class="text-[10px] font-bold text-secondary mt-1 animate-pulse">Harap tunggu sampai foto terlihat</p>
+                    <p wire:loading wire:target="foto" class="text-[10px] font-bold text-secondary mt-1 animate-pulse">Mengupload foto...</p>
                 </div>
 
                 @if ($foto)
                     <div class="mb-4">
                         <img src="{{ $foto->temporaryUrl() }}" class="w-32 h-32 object-cover border-3 border-dark mx-auto shadow-[3px_3px_0px_0px_#1a1a1a]">
+                        <p class="text-[10px] font-bold text-accent mt-1">Upload selesai ✓</p>
                     </div>
                 @endif
 
