@@ -32,7 +32,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function checkIn()
     {
-        $this->validate(['foto' => 'required|image|max:2048']);
+        $this->validate(['foto' => 'required|image|mimes:jpg,jpeg,png|max:2048']);
         $path = $this->foto->store('presensi', 'public');
 
         Presensi::create([
@@ -49,7 +49,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function checkOut()
     {
-        $this->validate(['foto' => 'required|image|max:2048']);
+        $this->validate(['foto' => 'required|image|mimes:jpg,jpeg,png|max:2048']);
         $path = $this->foto->store('presensi', 'public');
 
         $this->presensiHariIni->update([
@@ -94,10 +94,10 @@ new #[Layout('layouts.app')] class extends Component
                 </h2>
 
                 <div class="mb-4">
-                    <input type="file" wire:model="foto" accept="image/*" capture="environment"
+                    <input type="file" wire:model="foto" accept=".jpg,.jpeg,.png" capture="environment"
                            class="block w-full text-sm font-semibold file:mr-4 file:py-2 file:px-4 file:border-3 file:border-dark file:bg-highlight file:text-dark file:font-bold file:text-xs file:uppercase file:cursor-pointer file:hover:bg-highlight/80">
                     @error('foto') <span class="text-xs font-bold text-red-500 block mt-1">{{ $message }}</span> @enderror
-                    <p class="text-[10px] font-semibold text-dark/50 mt-1">Ambil foto sebagai bukti presensi</p>
+                    <p class="text-[10px] font-semibold text-dark/50 mt-1">Upload foto (JPG/JPEG/PNG, max 10MB)</p>
                     <p wire:loading wire:target="foto" class="text-[10px] font-bold text-secondary mt-1 animate-pulse">Mengupload foto...</p>
                 </div>
 

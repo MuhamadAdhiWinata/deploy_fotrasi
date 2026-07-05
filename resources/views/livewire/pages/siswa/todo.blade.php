@@ -72,7 +72,7 @@ new #[Layout('layouts.app')] class extends Component
             return;
         }
 
-        $this->validate(['foto' => 'required|image|max:2048']);
+        $this->validate(['foto' => 'required|image|mimes:jpg,jpeg,png|max:2048']);
         $path = $this->foto->store('presensi', 'public');
 
         Presensi::create([
@@ -97,7 +97,7 @@ new #[Layout('layouts.app')] class extends Component
             return;
         }
 
-        $this->validate(['foto' => 'required|image|max:2048']);
+        $this->validate(['foto' => 'required|image|mimes:jpg,jpeg,png|max:2048']);
         $path = $this->foto->store('presensi', 'public');
 
         $this->presensiHariIni->update([
@@ -135,7 +135,7 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         $this->validate([
-            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
             'catatan' => 'nullable|string|max:1000',
         ]);
 
@@ -198,7 +198,7 @@ new #[Layout('layouts.app')] class extends Component
                 </h3>
 
                 <div class="mb-3 max-w-xs mx-auto">
-                    <input type="file" wire:model="foto" accept="image/*" capture="environment"
+                    <input type="file" wire:model="foto" accept=".jpg,.jpeg,.png" capture="environment"
                            class="block w-full text-sm font-semibold file:mr-4 file:py-2 file:px-4 file:border-3 file:border-dark file:bg-highlight file:text-dark file:font-bold file:text-xs file:uppercase file:cursor-pointer">
                     @error('foto') <span class="text-xs font-bold text-red-500 block mt-1">{{ $message }}</span> @enderror
                     <p wire:loading wire:target="foto" class="text-[10px] font-bold text-secondary mt-1 animate-pulse">Mengupload foto...</p>
@@ -277,6 +277,7 @@ new #[Layout('layouts.app')] class extends Component
                             <x-input-label value="Upload File (opsional)" />
                             <input type="file" wire:model="file" accept=".pdf,.jpg,.jpeg,.png" class="block w-full text-sm font-semibold file:mr-4 file:py-2 file:px-4 file:border-3 file:border-dark file:bg-secondary file:text-white file:font-bold file:text-xs file:uppercase file:cursor-pointer mt-1">
                             @error('file') <span class="text-xs font-bold text-red-500">{{ $message }}</span> @enderror
+                            <p class="text-[10px] font-semibold text-dark/50 mt-1">1 halaman: JPG/JPEG/PNG &bull; Banyak halaman: PDF &bull; Max 10MB</p>
                         </div>
                         <div>
                             <x-input-label value="Catatan (opsional)" />
