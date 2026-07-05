@@ -29,7 +29,7 @@
         </header>
 
         {{-- Mobile Menu --}}
-        <div id="mobileMenu" class="hidden md:hidden fixed inset-0 z-50 bg-dark/50">
+        <div id="mobileMenu" class="hidden md:hidden fixed inset-0 z-[60] bg-dark/50">
             <div class="absolute right-0 top-0 bottom-0 w-72 bg-white border-l-4 border-dark p-4 overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
                     <span class="font-extrabold text-sm uppercase">Menu</span>

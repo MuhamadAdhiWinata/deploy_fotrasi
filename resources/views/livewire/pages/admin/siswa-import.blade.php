@@ -407,6 +407,15 @@ new #[Layout('layouts.app')] class extends Component
             <h2 class="font-extrabold text-dark uppercase text-sm mb-4">Upload File</h2>
             <form wire:submit="identifikasi" class="space-y-4">
                 <div>
+                    <x-input-label value="Periode Event" />
+                    <select wire:model="periodeId" class="w-full border-3 border-dark p-2.5 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white mb-4">
+                        <option value="">Pilih Periode</option>
+                        @foreach (\App\Models\Periode::latest()->get() as $p)
+                            <option value="{{ $p->id }}">{{ $p->nama }} {{ $p->is_active ? '(Aktif)' : '' }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
                     <div class="border-4 border-dashed border-dark/30 p-8 text-center hover:border-dark/60 transition-colors cursor-pointer" onclick="document.getElementById('file-input').click()">
                         <div class="mb-3">
                             <svg class="w-10 h-10 mx-auto text-dark/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>

@@ -18,44 +18,43 @@
 | `./vendor/bin/pint` | Format PHP code (default Laravel rules) |
 | `npm run build` | Vite production build |
 
-No CI/CD, no pre-commit hooks, no static analysis config.
+`.env` already exists (project is bootstrapped). No CI/CD, no pre-commit hooks.
 
 ## Architecture
 
-- **Entry**: `public/index.php` (HTTP), `artisan` (CLI), `bootstrap/app.php`.
-- **Routing**: `routes/web.php` (main app), `routes/auth.php` (Breeze auth), `routes/console.php`.
-- **All page logic** is Livewire Volt single-file components under `resources/views/livewire/pages/`.
-  - Admin: `livewire/pages/admin/*.blade.php`
-  - Siswa: `livewire/pages/siswa/*.blade.php`
+- **Routing**: `routes/web.php` — `/siswa/*` for siswa, `/admin/*` for admin. `/dashboard` redirects by role (`isAdmin()`). `routes/auth.php` (Breeze), `routes/console.php`.
+- **All page logic**: Livewire Volt single-file components under `resources/views/livewire/pages/`.
+  - Admin: `pages/admin/*.blade.php` — dashboard, siswa (index/detail/import), periode, presensi, tugas, tugas-pengumpulan.
+  - Siswa: `pages/siswa/*.blade.php` — dashboard, todo, presensi, tugas (some are embedded components).
 - **Only 1 traditional controller**: `Auth\VerifyEmailController`.
-- **Models** (4): `User`, `Presensi`, `Tugas`, `PengumpulanTugas` in `app/Models/`.
+- **Models** (5): `User`, `Presensi`, `Tugas`, `PengumpulanTugas`, `Periode` in `app/Models/`.
 - **Services**: `app/Services/GeminiService.php` — AI student data extraction via Gemini 2.0 Flash.
-- **Views**: `layouts/app.blade.php` has dual-mode layout (admin sidebar vs siswa bottom nav).
-- **Config** highlights:
+- **Views**: `layouts/app.blade.php` has dual-mode layout (admin sidebar vs siswa bottom nav). Livewire layout configured to `components.layouts.app` in `config/livewire.php`.
+- **Config highlights**:
   - Timezone: `Asia/Jakarta` (`config/app.php`)
-  - Valid classes list: `config/kelas.php`
+  - Valid classes list: `config/kelas.php` — `TSM A/B/C`, `TKR A-D`, `PBS`, `RPL`, `DPIB`, `Animasi`
   - Gemini/OpenAI keys: `config/services.php` (env: `GEMINI_API_KEY`, `OPENAI_API_KEY`)
-  - Session driver override: `SESSION_DRIVER=database`
+  - Session/Cache/Queue driver override: `SESSION_DRIVER=database`, `CACHE_STORE=database`, `QUEUE_CONNECTION=database`
+  - SPA mode (wire:navigate) enabled in `config/livewire.php`
 
 ## Database
 
-11 migrations — core tables: `users` (role: admin/siswa), `periodes`, `presensis`, `tugas`, `pengumpulan_tugas`.
+12 migrations. Core tables: `users` (role: admin/siswa), `periodes` (`is_active` boolean, only one active), `presensis`, `tugas`, `pengumpulan_tugas`.
 
 Unique constraints: `presensis(user_id, tanggal)`, `pengumpulan_tugas(tugas_id, user_id)`.
 
-`periodes` table has `is_active` boolean (only one active at a time). Users, Presensi, and Tugas each have a nullable `periode_id` FK scoping data to a period. Set active period in admin → Periode.
+`periode_id` FK on users, presensis, and tugas — scopes data to active period. Set via admin → Periode.
 
 ## Testing
 
-- SQLite in-memory (see `phpunit.xml`). No external services needed.
+- SQLite in-memory (`phpunit.xml`). No external services needed.
 - Tests in `tests/Feature/` and `tests/Unit/`.
-- Auth tests use Breeze Livewire stack (test Volt components via `\Livewire\Volt\test()`).
+- Auth tests use Breeze Livewire stack — test Volt components via `\Livewire\Volt\test()`.
 - `composer test` is the canonical runner.
 
 ## Gotchas
 
 - After adding a migration: `php artisan migrate:fresh --seed` to reset and re-seed.
 - `php artisan storage:link` needed for public file access (photos, submissions).
-- The SEO-friendly slug in `routes/web.php` is `/siswa/*`, `/admin/*` — watch for role-redirect in `/dashboard`.
 - Gemini features require `GEMINI_API_KEY` in `.env`.
 - `.editorconfig`: 4-space indent, LF line endings.
