@@ -213,6 +213,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 });
 
+// Parent monitoring (no auth)
+Volt::route('orang-tua', 'pages.parent.index')->name('orang-tua');
+
 // Profile
 Volt::route('profile', 'pages.profile')
     ->middleware(['auth'])
