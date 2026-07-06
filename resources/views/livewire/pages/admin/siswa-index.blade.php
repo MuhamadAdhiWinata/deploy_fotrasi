@@ -216,10 +216,13 @@ new #[Layout('layouts.app')] class extends Component
                 <p class="text-white/70 text-xs font-bold">Kelola data siswa</p>
             </div>
             <div class="flex gap-2">
+                <a href="{{ route('admin.siswa.export', array_filter(['periode_id' => $filterPeriode, 'kelas' => $filterKelas, 'cari' => $cari])) }}" class="bg-accent text-dark border-3 border-dark px-4 py-2 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all">
+                    Export
+                </a>
                 <a href="{{ route('admin.siswa.import') }}" wire:navigate class="bg-white text-dark border-3 border-dark px-4 py-2 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all">
                     Import
                 </a>
-                <button wire:click="buatBaru" class="bg-accent text-dark border-3 border-dark px-4 py-2 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all max-lg:hidden">
+                <button wire:click="buatBaru" class="bg-secondary text-white border-3 border-dark px-4 py-2 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_#1a1a1a] transition-all max-lg:hidden">
                     + Tambah
                 </button>
             </div>
