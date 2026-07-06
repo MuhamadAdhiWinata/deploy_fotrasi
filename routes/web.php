@@ -10,6 +10,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('siswa')->name('siswa.')->group(function () {
         Volt::route('/dashboard', 'pages.siswa.dashboard')->name('dashboard');
         Volt::route('/todo', 'pages.siswa.todo')->name('todo');
+        Volt::route('/kaih', 'pages.siswa.kaih-harian')->name('kaih');
+        Volt::route('/kaih/rekap', 'pages.siswa.kaih-rekap')->name('kaih.rekap');
     });
 
     // Admin routes

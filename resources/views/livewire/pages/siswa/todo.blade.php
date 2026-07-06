@@ -154,15 +154,31 @@ new #[Layout('layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="p-4 md:p-0">
+<div class="p-4 md:p-0 space-y-6">
     {{-- Header --}}
-    <div class="bg-primary border-4 border-dark p-5 shadow-[6px_6px_0px_0px_#1a1a1a] -mx-4 md:-mx-0 mb-6">
+    <div class="bg-primary border-4 border-dark p-5 shadow-[6px_6px_0px_0px_#1a1a1a] -mx-4 md:-mx-0">
         <h1 class="text-white text-lg font-extrabold uppercase">To Do</h1>
         <p class="text-white/70 text-xs font-bold">{{ now()->format('l, d F Y') }}</p>
     </div>
 
+    {{-- 7 KAIH Card --}}
+    <a href="{{ route('siswa.kaih') }}" wire:navigate class="block bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-5 hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#1a1a1a] transition-all">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-highlight border-3 border-dark flex items-center justify-center shrink-0">
+                <span class="font-extrabold text-dark text-xl">7</span>
+            </div>
+            <div class="flex-1 min-w-0">
+                <h2 class="font-extrabold text-dark text-sm uppercase">Jurnal 7 KAIH</h2>
+                <p class="text-[10px] font-semibold text-dark/60">7 Kebiasaan Anak Indonesia Hebat • MPLS 13-17 Juli 2026</p>
+            </div>
+            <div class="bg-secondary text-white border-3 border-dark px-3 py-1.5 font-bold text-[10px] uppercase shrink-0">
+                Buka
+            </div>
+        </div>
+    </a>
+
     {{-- Presensi Section --}}
-    <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-5 mb-6">
+    <div class="bg-white border-4 border-dark shadow-[6px_6px_0px_0px_#1a1a1a] p-5">
         <div class="flex items-center justify-between mb-4">
             <h2 class="font-extrabold text-dark uppercase text-sm flex items-center gap-2">
                 <svg class="w-5 h-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>

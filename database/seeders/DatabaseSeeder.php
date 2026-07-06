@@ -16,10 +16,12 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
+        $this->call(KaihActivitySeeder::class);
+
         $periode = Periode::create([
             'nama' => 'Fortasi ' . now()->year,
-            'tanggal_mulai' => now()->startOfMonth(),
-            'tanggal_selesai' => now()->endOfMonth(),
+            'tanggal_mulai' => now()->setDate(now()->year, 7, 13),
+            'tanggal_selesai' => now()->setDate(now()->year, 7, 17),
             'is_active' => true,
         ]);
 
