@@ -33,14 +33,9 @@ new #[Layout('layouts.app')] class extends Component
             ->get();
     }
 
-    public function checkIn($lat = null, $lng = null, $accuracy = null)
+    private function prosesPresensi(string $tipe, ?float $lat, ?float $lng, ?float $accuracy): void
     {
         $this->validate(['foto' => 'required|image|mimes:jpg,jpeg,png|max:2048']);
-
-        if ($lat === null || $lng === null) {
-            $this->gpsError = 'Gagal mendapatkan lokasi GPS. Izinkan akses lokasi di browser dan coba lagi.';
-            return;
-        }
 
         $periode = Periode::find(auth()->user()->periode_id);
         if (!$periode || !$periode->latitude || !$periode->longitude) {
@@ -50,6 +45,11 @@ new #[Layout('layouts.app')] class extends Component
 
         $exif = GpsService::ekstrakExifGps($this->foto->getRealPath());
 
+        if ($lat === null && $exif === null) {
+            $this->gpsError = 'Gagal mendapatkan lokasi. Pastikan GPS aktif dan foto memiliki data lokasi.';
+            return;
+        }
+
         $keamanan = GpsService::cekKeamanan(
             $lat, $lng,
             $exif['lat'] ?? null, $exif['lng'] ?? null,
@@ -58,7 +58,7 @@ new #[Layout('layouts.app')] class extends Component
             $periode->radius_meters
         );
 
-        if (in_array('exif_conflict', $keamanan['flags'])) {
+        if (in_array('exif_conflict', $keamanan['flags']) && $lat !== null) {
             $this->gpsError = 'Lokasi foto tidak sesuai dengan lokasi GPS. Gunakan kamera langsung, bukan screenshot.';
             $this->reset('foto');
             return;
@@ -72,77 +72,55 @@ new #[Layout('layouts.app')] class extends Component
 
         $path = $this->foto->store('presensi', 'public');
 
-        Presensi::create([
+        $data = [
             'user_id' => auth()->id(),
             'periode_id' => auth()->user()->periode_id,
             'tanggal' => today(),
-            'check_in' => now(),
             'foto_check_in' => $path,
-            'lat_check_in' => $lat,
-            'lng_check_in' => $lng,
-            'gps_accuracy_in' => $accuracy,
             'exif_lat_in' => $exif['lat'] ?? null,
             'exif_lng_in' => $exif['lng'] ?? null,
             'ip_address' => request()->ip(),
-            'lokasi_valid' => true,
-        ]);
+            'lokasi_valid' => $keamanan['lokasi_valid'],
+        ];
+
+        $data['check_in'] = now();
+
+        if ($lat !== null) {
+            $data['lat_check_in'] = $lat;
+            $data['lng_check_in'] = $lng;
+            $data['gps_accuracy_in'] = $accuracy;
+        }
+
+        if ($tipe === 'check_out') {
+            unset($data['check_in'], $data['foto_check_in'], $data['exif_lat_in'], $data['exif_lng_in']);
+            $data['check_out'] = now();
+            $data['foto_check_out'] = $path;
+            $data['exif_lat_out'] = $exif['lat'] ?? null;
+            $data['exif_lng_out'] = $exif['lng'] ?? null;
+
+            if ($lat !== null) {
+                $data['lat_check_out'] = $lat;
+                $data['lng_check_out'] = $lng;
+                $data['gps_accuracy_out'] = $accuracy;
+            }
+
+            $this->presensiHariIni->update($data);
+        } else {
+            Presensi::create($data);
+        }
 
         $this->reset('foto', 'gpsError');
         $this->mount();
     }
 
+    public function checkIn($lat = null, $lng = null, $accuracy = null)
+    {
+        $this->prosesPresensi('check_in', $lat, $lng, $accuracy);
+    }
+
     public function checkOut($lat = null, $lng = null, $accuracy = null)
     {
-        $this->validate(['foto' => 'required|image|mimes:jpg,jpeg,png|max:2048']);
-
-        if ($lat === null || $lng === null) {
-            $this->gpsError = 'Gagal mendapatkan lokasi GPS. Izinkan akses lokasi di browser dan coba lagi.';
-            return;
-        }
-
-        $periode = Periode::find(auth()->user()->periode_id);
-        if (!$periode || !$periode->latitude || !$periode->longitude) {
-            $this->gpsError = 'Koordinator sekolah belum diatur oleh admin. Hubungi administrator.';
-            return;
-        }
-
-        $exif = GpsService::ekstrakExifGps($this->foto->getRealPath());
-
-        $keamanan = GpsService::cekKeamanan(
-            $lat, $lng,
-            $exif['lat'] ?? null, $exif['lng'] ?? null,
-            $accuracy,
-            $periode->latitude, $periode->longitude,
-            $periode->radius_meters
-        );
-
-        if (in_array('exif_conflict', $keamanan['flags'])) {
-            $this->gpsError = 'Lokasi foto tidak sesuai dengan lokasi GPS. Gunakan kamera langsung, bukan screenshot.';
-            $this->reset('foto');
-            return;
-        }
-
-        if ($keamanan['lokasi_valid'] !== true) {
-            $this->gpsError = 'Anda berada ' . $keamanan['jarak'] . 'm dari sekolah. Presensi hanya dalam radius ' . $periode->radius_meters . 'm.';
-            $this->reset('foto');
-            return;
-        }
-
-        $path = $this->foto->store('presensi', 'public');
-
-        $this->presensiHariIni->update([
-            'check_out' => now(),
-            'foto_check_out' => $path,
-            'lat_check_out' => $lat,
-            'lng_check_out' => $lng,
-            'gps_accuracy_out' => $accuracy,
-            'exif_lat_out' => $exif['lat'] ?? null,
-            'exif_lng_out' => $exif['lng'] ?? null,
-            'lokasi_valid' => true,
-        ]);
-
-        $this->reset('foto', 'gpsError');
-        $this->mount();
+        $this->prosesPresensi('check_out', $lat, $lng, $accuracy);
     }
 }; ?>
 
@@ -198,71 +176,47 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
                 @endif
 
-                <div x-data="{ capturing: false, error: '' }">
-                    <button x-on:click.prevent="
-                        if (capturing) return;
-                        capturing = true;
-                        error = '';
-                        let samples = [];
-                        let ambil = (resolve, reject) => {
-                            navigator.geolocation.getCurrentPosition(
-                                (pos) => {
-                                    samples.push({
-                                        lat: pos.coords.latitude,
-                                        lng: pos.coords.longitude,
-                                        acc: Math.round(pos.coords.accuracy)
-                                    });
-                                    if (samples.length < 3) {
-                                        setTimeout(() => ambil(resolve, reject), 2000);
-                                    } else {
-                                        let allSame = samples.every(s => s.lat === samples[0].lat && s.lng === samples[0].lng);
-                                        if (allSame) {
-                                            reject('Koordinat tidak wajar (tidak ada perubahan posisi). Coba lagi.');
-                                        } else if (samples.some(s => s.acc > 50)) {
-                                            let avgAcc = Math.round(samples.reduce((a, b) => a + b.acc, 0) / samples.length);
-                                            reject('Sinyal GPS lemah (akurasi rata-rata ' + avgAcc + 'm). Coba di area terbuka.');
-                                        } else {
-                                            resolve({
-                                                lat: samples.reduce((a, b) => a + b.lat, 0) / 3,
-                                                lng: samples.reduce((a, b) => a + b.lng, 0) / 3,
-                                                accuracy: Math.max(...samples.map(s => s.acc))
-                                            });
-                                        }
-                                    }
-                                },
-                                (err) => {
-                                    let msg = 'Gagal mendapatkan lokasi. ';
-                                    if (err.code === 1) msg += 'Izinkan akses GPS di browser Anda.';
-                                    else if (err.code === 2) msg += 'Sinyal GPS tidak tersedia. Coba di area terbuka.';
-                                    else if (err.code === 3) msg += 'Waktu habis. Pastikan GPS aktif dan coba lagi.';
-                                    else msg += err.message;
-                                    reject(msg);
-                                },
-                                { enableHighAccuracy: true, timeout: 10000 }
-                            );
-                        };
-                        new Promise(ambil)
-                            .then(pos => {
-                                capturing = false;
-                                $wire.{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}(pos.lat, pos.lng, pos.accuracy);
-                            })
-                            .catch(msg => {
-                                capturing = false;
-                                error = msg;
-                            });
-                    " :disabled="capturing" class="bg-primary text-white border-3 border-dark px-8 py-3 font-bold text-sm uppercase shadow-[4px_4px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_#1a1a1a] transition-all disabled:opacity-50">
-                        <span x-show="!capturing && !error">{{ $mode === 'check_in' ? 'Check In' : 'Check Out' }}</span>
-                        <span x-show="capturing">Mendapatkan lokasi GPS (6 dtk)...</span>
-                        <span x-show="!capturing && error" class="text-[10px]">Coba Lagi</span>
-                    </button>
-                    <div x-show="capturing" class="mt-2">
-                        <div class="w-full bg-dark/10 h-2 border-2 border-dark overflow-hidden">
-                            <div class="bg-secondary h-full animate-pulse" style="width: 100%"></div>
-                        </div>
-                        <p class="text-[10px] font-bold text-secondary mt-1 animate-pulse">Mengambil sampel GPS (3x)...</p>
+                {{-- Single-step: GPS + submit in one click --}}
+                <div x-data="{ loading: false, error: '' }">
+                    <div x-show="loading" class="mb-3 bg-secondary border-3 border-dark p-3 shadow-[3px_3px_0px_0px_#1a1a1a]">
+                        <p class="text-white font-bold text-xs">
+                            <span x-text="gpsStep"></span>
+                        </p>
                     </div>
-                    <div x-show="error" class="mt-2 bg-red-500 border-3 border-dark p-2 shadow-[3px_3px_0px_0px_#1a1a1a]">
+                    <div x-show="error" class="mb-3 bg-red-500 border-3 border-dark p-3 shadow-[3px_3px_0px_0px_#1a1a1a]">
                         <p class="text-white font-bold text-xs" x-text="error"></p>
+                    </div>
+
+                    <button x-show="!loading"
+                            x-on:click.prevent="
+                                loading = true;
+                                error = '';
+                                gpsStep = 'Mendapatkan lokasi GPS... Izinkan akses lokasi jika diminta.';
+                                navigator.geolocation.getCurrentPosition(
+                                    (pos) => {
+                                        gpsStep = 'GPS dapat, mengirim presensi...';
+                                        $wire.{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}(pos.coords.latitude, pos.coords.longitude, Math.round(pos.coords.accuracy));
+                                    },
+                                    (err) => {
+                                        gpsStep = 'GPS tidak tersedia, menggunakan lokasi dari foto...';
+                                        $wire.{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}(null, null, null);
+                                    },
+                                    { enableHighAccuracy: true, timeout: 15000 }
+                                );
+                            "
+                            class="bg-primary text-white border-3 border-dark px-8 py-3 font-bold text-sm uppercase shadow-[4px_4px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_#1a1a1a] transition-all w-full">
+                        {{ $mode === 'check_in' ? 'Check In' : 'Check Out' }}
+                    </button>
+
+                    <button x-show="loading" disabled class="bg-gray-400 text-white border-3 border-dark px-8 py-3 font-bold text-sm uppercase shadow-[4px_4px_0px_0px_#1a1a1a] opacity-50 w-full">
+                        <span x-text="gpsStep"></span>
+                    </button>
+
+                    <div wire:loading wire:target="checkIn,checkOut" class="mt-2">
+                        <div class="w-full bg-dark/10 h-2 border-2 border-dark overflow-hidden">
+                            <div class="bg-accent h-full animate-pulse" style="width: 100%"></div>
+                        </div>
+                        <p class="text-[10px] font-bold text-accent mt-1 animate-pulse">Memverifikasi data...</p>
                     </div>
                 </div>
             </div>

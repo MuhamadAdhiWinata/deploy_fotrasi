@@ -26,8 +26,11 @@ new #[Layout('layouts.app')] class extends Component
     public $file;
     public $catatan = '';
 
+    public $periode = null;
+
     public function mount()
     {
+        $this->periode = auth()->user()->periode;
         $this->loadPresensi();
         $this->loadTugas();
     }
@@ -169,7 +172,7 @@ new #[Layout('layouts.app')] class extends Component
             </div>
             <div class="flex-1 min-w-0">
                 <h2 class="font-extrabold text-dark text-sm uppercase">Jurnal 7 KAIH</h2>
-                <p class="text-[10px] font-semibold text-dark/60">7 Kebiasaan Anak Indonesia Hebat • MPLS 13-17 Juli 2026</p>
+                <p class="text-[10px] font-semibold text-dark/60">7 Kebiasaan Anak Indonesia Hebat @if ($periode) • {{ $periode->nama }} ({{ $periode->tanggal_mulai->format('d/m/Y') }} - {{ $periode->tanggal_selesai->format('d/m/Y') }}) @endif</p>
             </div>
             <div class="bg-secondary text-white border-3 border-dark px-3 py-1.5 font-bold text-[10px] uppercase shrink-0">
                 Buka

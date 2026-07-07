@@ -95,6 +95,20 @@ class GpsService
         $lokasiValid = null;
 
         if ($gpsLat === null || $gpsLng === null) {
+            if ($exifLat !== null && $exifLng !== null) {
+                $exifJarak = self::hitungJarak($exifLat, $exifLng, $schoolLat, $schoolLng);
+                $exifJarak = round($exifJarak, 1);
+                $lokasiValid = $exifJarak <= $radius;
+                $flags[] = 'exif_only';
+
+                return [
+                    'lokasi_valid' => $lokasiValid,
+                    'flags' => $flags,
+                    'jarak' => $exifJarak,
+                    'exif_cocok' => true,
+                ];
+            }
+
             $flags[] = 'no_gps';
 
             return [
@@ -152,6 +166,9 @@ class GpsService
         }
         if (in_array('exif_hilang', $flags)) {
             return ['label' => 'EXIF Hilang', 'warna' => 'bg-orange-400', 'text' => 'Foto tidak memiliki data GPS'];
+        }
+        if (in_array('exif_only', $flags)) {
+            return ['label' => 'EXIF Only', 'warna' => 'bg-yellow-500', 'text' => 'Lokasi dari foto (GPS HP tidak tersedia)'];
         }
         if (in_array('akurasi_rendah', $flags)) {
             return ['label' => 'Akurasi Rendah', 'warna' => 'bg-orange-400', 'text' => 'Sinyal GPS lemah (>50m)'];

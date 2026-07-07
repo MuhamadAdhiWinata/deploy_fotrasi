@@ -54,13 +54,20 @@ new #[Layout('layouts.app')] class extends Component
 
         if ($this->filterKeamanan === 'aman') {
             $query->where('lokasi_valid', true);
+        } elseif ($this->filterKeamanan === 'exif_only') {
+            $query->where('lokasi_valid', true)
+                  ->whereNull('lat_check_in')
+                  ->whereNotNull('exif_lat_in');
         } elseif ($this->filterKeamanan === 'mencurigakan') {
             $query->where(function ($q) {
                 $q->where('lokasi_valid', false)
                   ->orWhereNull('lokasi_valid')
                   ->orWhere('gps_accuracy_in', '>', 50)
-                  ->orWhereNotNull('exif_lat_in')
-                  ->whereRaw('exif_lat_in IS NOT NULL AND (ABS(lat_check_in - exif_lat_in) > 0.001 OR ABS(lng_check_in - exif_lng_in) > 0.001)');
+                  ->orWhere(function ($q2) {
+                      $q2->whereNotNull('exif_lat_in')
+                          ->whereNotNull('lat_check_in')
+                          ->whereRaw('ABS(lat_check_in - exif_lat_in) > 0.001 OR ABS(lng_check_in - exif_lng_in) > 0.001');
+                  });
             });
         }
 
@@ -143,10 +150,12 @@ new #[Layout('layouts.app')] class extends Component
     {
         $flags = [];
 
-        if ($p->lokasi_valid === null && $p->lat_check_in === null) {
+        if ($p->lokasi_valid === null && $p->lat_check_in === null && $p->exif_lat_in === null) {
             $flags[] = 'no_gps';
         } elseif ($p->lokasi_valid === false) {
             $flags[] = 'luar_jangkauan';
+        } elseif ($p->lat_check_in === null && $p->exif_lat_in !== null) {
+            $flags[] = 'exif_only';
         }
 
         if ($p->gps_accuracy_in !== null && $p->gps_accuracy_in > 50) {
@@ -167,10 +176,15 @@ new #[Layout('layouts.app')] class extends Component
 
     private function jarakSekolah($p, $periode): ?float
     {
-        if ($p->lat_check_in === null || !$periode || !$periode->latitude) {
+        if (!$periode || !$periode->latitude) {
             return null;
         }
-        return round(GpsService::hitungJarak($p->lat_check_in, $p->lng_check_in, $periode->latitude, $periode->longitude), 1);
+        $lat = $p->lat_check_in ?? $p->exif_lat_in;
+        $lng = $p->lng_check_in ?? $p->exif_lng_in;
+        if ($lat === null) {
+            return null;
+        }
+        return round(GpsService::hitungJarak($lat, $lng, $periode->latitude, $periode->longitude), 1);
     }
 }; ?>
 
@@ -234,6 +248,7 @@ new #[Layout('layouts.app')] class extends Component
                 <select wire:model.live="filterKeamanan" class="border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
                     <option value="">Semua Status</option>
                     <option value="aman">🟢 Aman</option>
+                    <option value="exif_only">🟡 EXIF Only</option>
                     <option value="mencurigakan">⚠️ Mencurigakan</option>
                 </select>
             </div>
@@ -295,6 +310,7 @@ new #[Layout('layouts.app')] class extends Component
                     <select wire:model="tempFilterKeamanan" class="w-full border-3 border-dark p-2.5 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
                         <option value="">Semua Status</option>
                         <option value="aman">🟢 Aman</option>
+                        <option value="exif_only">🟡 EXIF Only</option>
                         <option value="mencurigakan">⚠️ Mencurigakan</option>
                     </select>
                 </div>
@@ -343,13 +359,15 @@ new #[Layout('layouts.app')] class extends Component
                                 <span class="text-[9px] font-bold {{ $badge['warna'] }} text-white px-1.5 py-0.5 border-2 border-dark uppercase">{{ $badge['label'] }}</span>
                             </div>
                         </div>
-                        @if ($p->lat_check_in)
+                        @if ($p->lat_check_in || $p->exif_lat_in)
                             <div class="mt-2 grid grid-cols-2 gap-2 text-[10px] font-semibold text-dark/60">
-                                <div>
-                                    <span class="block">GPS IN: {{ $p->lat_check_in }}, {{ $p->lng_check_in }}</span>
-                                    <span class="block">Akurasi: {{ $p->gps_accuracy_in ?? '-' }}m</span>
-                                    <a href="https://www.google.com/maps?q={{ $p->lat_check_in }},{{ $p->lng_check_in }}" target="_blank" class="text-secondary underline">Lihat Peta IN</a>
-                                </div>
+                                @if ($p->lat_check_in)
+                                    <div>
+                                        <span class="block">GPS IN: {{ $p->lat_check_in }}, {{ $p->lng_check_in }}</span>
+                                        <span class="block">Akurasi: {{ $p->gps_accuracy_in ?? '-' }}m</span>
+                                        <a href="https://www.google.com/maps?q={{ $p->lat_check_in }},{{ $p->lng_check_in }}" target="_blank" class="text-secondary underline">Lihat Peta IN</a>
+                                    </div>
+                                @endif
                                 @if ($p->exif_lat_in)
                                     <div>
                                         <span class="block">EXIF IN: {{ $p->exif_lat_in }}, {{ $p->exif_lng_in }}</span>
@@ -448,10 +466,10 @@ new #[Layout('layouts.app')] class extends Component
                                         Out
                                     </a>
                                 @endif
-                                @if ($p->lat_check_in)
-                                    <a href="https://www.google.com/maps?q={{ $p->lat_check_in }},{{ $p->lng_check_in }}" target="_blank" class="flex-1 bg-dark text-white border-2 border-dark py-1.5 flex items-center justify-center gap-1 text-[10px] font-bold uppercase shadow-[2px_2px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+                                @if ($p->lat_check_in || $p->exif_lat_in)
+                                    <a href="https://www.google.com/maps?q={{ $p->lat_check_in ?? $p->exif_lat_in }},{{ $p->lng_check_in ?? $p->exif_lng_in }}" target="_blank" class="flex-1 bg-dark text-white border-2 border-dark py-1.5 flex items-center justify-center gap-1 text-[10px] font-bold uppercase shadow-[2px_2px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                        GPS
+                                        {{ $p->lat_check_in ? 'GPS' : 'EXIF' }}
                                     </a>
                                 @endif
                             </div>
