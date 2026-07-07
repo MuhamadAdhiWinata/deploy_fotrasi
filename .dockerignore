@@ -1,0 +1,10 @@
+.git/
+.gitignore
+.env
+vendor/
+node_modules/
+storage/app/
+storage/framework/cache/data/
+storage/logs/*.log
+public/build/
+deploy/
