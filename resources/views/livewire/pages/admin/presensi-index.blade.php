@@ -6,6 +6,7 @@ use Livewire\WithPagination;
 use App\Models\Presensi;
 use App\Models\User;
 use App\Models\Periode;
+use App\Services\GpsService;
 
 new #[Layout('layouts.app')] class extends Component
 {
@@ -18,11 +19,13 @@ new #[Layout('layouts.app')] class extends Component
     public $cari = '';
     public $filterKelas = '';
     public $periodeId = '';
+    public $filterKeamanan = '';
     public $showFilters = false;
     public $tempTanggal;
     public $tempCari = '';
     public $tempFilterKelas = '';
     public $tempPeriodeId = '';
+    public $tempFilterKeamanan = '';
 
     public function mount()
     {
@@ -42,14 +45,26 @@ new #[Layout('layouts.app')] class extends Component
 
     public function loadPresensi()
     {
-        $this->presensiPaginator = Presensi::whereDate('tanggal', $this->selectedTanggal)
+        $query = Presensi::whereDate('tanggal', $this->selectedTanggal)
             ->with('user')
             ->when($this->filterKelas, fn($q) => $q->whereHas('user', fn($q) => $q->where('kelas', $this->filterKelas)))
             ->when($this->cari, fn($q) => $q->whereHas('user', fn($q) => $q->where('name', 'like', "%{$this->cari}%")
                 ->orWhere('kelas', 'like', "%{$this->cari}%")))
-            ->when($this->periodeId, fn($q) => $q->where('periode_id', $this->periodeId))
-            ->latest()
-            ->paginate(12);
+            ->when($this->periodeId, fn($q) => $q->where('periode_id', $this->periodeId));
+
+        if ($this->filterKeamanan === 'aman') {
+            $query->where('lokasi_valid', true);
+        } elseif ($this->filterKeamanan === 'mencurigakan') {
+            $query->where(function ($q) {
+                $q->where('lokasi_valid', false)
+                  ->orWhereNull('lokasi_valid')
+                  ->orWhere('gps_accuracy_in', '>', 50)
+                  ->orWhereNotNull('exif_lat_in')
+                  ->whereRaw('exif_lat_in IS NOT NULL AND (ABS(lat_check_in - exif_lat_in) > 0.001 OR ABS(lng_check_in - exif_lng_in) > 0.001)');
+            });
+        }
+
+        $this->presensiPaginator = $query->latest()->paginate(12);
         $this->presensiList = $this->presensiPaginator->items();
     }
 
@@ -71,6 +86,12 @@ new #[Layout('layouts.app')] class extends Component
         $this->loadPresensi();
     }
 
+    public function updatedFilterKeamanan()
+    {
+        $this->resetPage();
+        $this->loadPresensi();
+    }
+
     public function lihatSiswa($userId)
     {
         $this->detailSiswa = Presensi::where('user_id', $userId)->with('user')->latest('tanggal')->limit(30)->get();
@@ -87,6 +108,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->tempCari = $this->cari;
         $this->tempFilterKelas = $this->filterKelas;
         $this->tempPeriodeId = $this->periodeId;
+        $this->tempFilterKeamanan = $this->filterKeamanan;
         $this->showFilters = true;
     }
 
@@ -97,6 +119,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->cari = $this->tempCari;
         $this->filterKelas = $this->tempFilterKelas;
         $this->periodeId = $this->tempPeriodeId;
+        $this->filterKeamanan = $this->tempFilterKeamanan;
         $this->showFilters = false;
         $this->resetPage();
         $this->loadPresensi();
@@ -113,6 +136,41 @@ new #[Layout('layouts.app')] class extends Component
         $this->tempCari = '';
         $this->tempFilterKelas = '';
         $this->tempPeriodeId = '';
+        $this->tempFilterKeamanan = '';
+    }
+
+    private function badgeKeamanan($p): array
+    {
+        $flags = [];
+
+        if ($p->lokasi_valid === null && $p->lat_check_in === null) {
+            $flags[] = 'no_gps';
+        } elseif ($p->lokasi_valid === false) {
+            $flags[] = 'luar_jangkauan';
+        }
+
+        if ($p->gps_accuracy_in !== null && $p->gps_accuracy_in > 50) {
+            $flags[] = 'akurasi_rendah';
+        }
+
+        if ($p->exif_lat_in !== null && $p->lat_check_in !== null) {
+            $jarakExif = GpsService::hitungJarak($p->lat_check_in, $p->lng_check_in, $p->exif_lat_in, $p->exif_lng_in);
+            if ($jarakExif > 100) {
+                $flags[] = 'exif_conflict';
+            }
+        } elseif ($p->lat_check_in !== null && $p->exif_lat_in === null) {
+            $flags[] = 'exif_hilang';
+        }
+
+        return GpsService::labelKeamanan($flags);
+    }
+
+    private function jarakSekolah($p, $periode): ?float
+    {
+        if ($p->lat_check_in === null || !$periode || !$periode->latitude) {
+            return null;
+        }
+        return round(GpsService::hitungJarak($p->lat_check_in, $p->lng_check_in, $periode->latitude, $periode->longitude), 1);
     }
 }; ?>
 
@@ -172,6 +230,13 @@ new #[Layout('layouts.app')] class extends Component
                     @endforeach
                 </select>
             </div>
+            <div>
+                <select wire:model.live="filterKeamanan" class="border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
+                    <option value="">Semua Status</option>
+                    <option value="aman">🟢 Aman</option>
+                    <option value="mencurigakan">⚠️ Mencurigakan</option>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -225,6 +290,14 @@ new #[Layout('layouts.app')] class extends Component
                         @endforeach
                     </select>
                 </div>
+                <div>
+                    <x-input-label value="Status Keamanan" />
+                    <select wire:model="tempFilterKeamanan" class="w-full border-3 border-dark p-2.5 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary bg-white">
+                        <option value="">Semua Status</option>
+                        <option value="aman">🟢 Aman</option>
+                        <option value="mencurigakan">⚠️ Mencurigakan</option>
+                    </select>
+                </div>
             </div>
             <div class="border-t-4 border-dark p-4 flex gap-3 sticky bottom-0 bg-white">
                 <button wire:click="resetFilterMobile" class="flex-1 bg-red-500 text-white border-3 border-dark py-3 font-bold text-xs uppercase shadow-[3px_3px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
@@ -248,26 +321,55 @@ new #[Layout('layouts.app')] class extends Component
             </div>
             <div class="space-y-2">
                 @foreach ($detailSiswa as $p)
-                    <div class="flex items-center justify-between border-2 border-dark/20 p-3">
-                        <div>
-                            <span class="font-bold text-sm">{{ $p->tanggal->format('d M Y') }}</span>
-                            <div class="flex gap-2 mt-1">
-                                @if ($p->check_in)
-                                    <span class="text-[10px] font-bold bg-accent/30 px-1.5 py-0.5 border border-accent">IN {{ $p->check_in->format('H:i') }}</span>
-                                @endif
-                                @if ($p->check_out)
-                                    <span class="text-[10px] font-bold bg-highlight px-1.5 py-0.5 border border-highlight">OUT {{ $p->check_out->format('H:i') }}</span>
-                                @endif
+                    @php
+                        $periodeItem = $p->periode_id ? \App\Models\Periode::find($p->periode_id) : null;
+                        $badge = $this->badgeKeamanan($p);
+                        $jarak = $this->jarakSekolah($p, $periodeItem);
+                    @endphp
+                    <div class="border-2 border-dark/20 p-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="font-bold text-sm">{{ $p->tanggal->format('d M Y') }}</span>
+                                <div class="flex gap-2 mt-1">
+                                    @if ($p->check_in)
+                                        <span class="text-[10px] font-bold bg-accent/30 px-1.5 py-0.5 border border-accent">IN {{ $p->check_in->format('H:i') }}</span>
+                                    @endif
+                                    @if ($p->check_out)
+                                        <span class="text-[10px] font-bold bg-highlight px-1.5 py-0.5 border border-highlight">OUT {{ $p->check_out->format('H:i') }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-bold {{ $badge['warna'] }} text-white px-1.5 py-0.5 border-2 border-dark uppercase">{{ $badge['label'] }}</span>
                             </div>
                         </div>
-                        <div class="flex gap-1">
-                            @if ($p->foto_check_in)
-                                <a href="{{ asset('storage/' . $p->foto_check_in) }}" target="_blank" class="text-[10px] font-bold text-secondary underline">Foto IN</a>
-                            @endif
-                            @if ($p->foto_check_out)
-                                <a href="{{ asset('storage/' . $p->foto_check_out) }}" target="_blank" class="text-[10px] font-bold text-secondary underline ml-2">Foto OUT</a>
-                            @endif
-                        </div>
+                        @if ($p->lat_check_in)
+                            <div class="mt-2 grid grid-cols-2 gap-2 text-[10px] font-semibold text-dark/60">
+                                <div>
+                                    <span class="block">GPS IN: {{ $p->lat_check_in }}, {{ $p->lng_check_in }}</span>
+                                    <span class="block">Akurasi: {{ $p->gps_accuracy_in ?? '-' }}m</span>
+                                    <a href="https://www.google.com/maps?q={{ $p->lat_check_in }},{{ $p->lng_check_in }}" target="_blank" class="text-secondary underline">Lihat Peta IN</a>
+                                </div>
+                                @if ($p->exif_lat_in)
+                                    <div>
+                                        <span class="block">EXIF IN: {{ $p->exif_lat_in }}, {{ $p->exif_lng_in }}</span>
+                                        <a href="https://www.google.com/maps?q={{ $p->exif_lat_in }},{{ $p->exif_lng_in }}" target="_blank" class="text-secondary underline">Lihat Peta EXIF</a>
+                                    </div>
+                                @endif
+                                @if ($jarak !== null)
+                                    <div class="col-span-2">
+                                        <span class="block">Jarak sekolah: {{ $jarak }}m</span>
+                                        <span class="block">IP: {{ $p->ip_address ?? '-' }}</span>
+                                    </div>
+                                @endif
+                                @if ($p->check_out && $p->lat_check_out)
+                                    <div class="col-span-2 border-t border-dark/10 pt-1 mt-1">
+                                        <span class="block">GPS OUT: {{ $p->lat_check_out }}, {{ $p->lng_check_out }}</span>
+                                        <a href="https://www.google.com/maps?q={{ $p->lat_check_out }},{{ $p->lng_check_out }}" target="_blank" class="text-secondary underline">Lihat Peta OUT</a>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
                     </div>
                 @endforeach
             </div>
@@ -286,7 +388,17 @@ new #[Layout('layouts.app')] class extends Component
             @else
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach ($this->presensiList as $p)
-                        <div class="bg-white border-3 border-dark shadow-[4px_4px_0px_0px_#1a1a1a] p-4">
+                        @php
+                            $periodeItem = $p->periode_id ? \App\Models\Periode::find($p->periode_id) : null;
+                            $badge = $this->badgeKeamanan($p);
+                            $jarak = $this->jarakSekolah($p, $periodeItem);
+                        @endphp
+                        <div class="bg-white border-3 border-dark shadow-[4px_4px_0px_0px_#1a1a1a] p-4 relative">
+                            {{-- Badge Keamanan --}}
+                            <div class="absolute top-2 right-2">
+                                <span class="text-[8px] font-bold {{ $badge['warna'] }} text-white px-1.5 py-0.5 border-2 border-dark uppercase">{{ $badge['label'] }}</span>
+                            </div>
+
                             <div class="flex items-center gap-3 mb-3">
                                 <div class="w-10 h-10 bg-secondary border-3 border-dark flex items-center justify-center text-white font-extrabold text-sm shrink-0">
                                     {{ substr($p->user->name, 0, 1) }}
@@ -318,6 +430,11 @@ new #[Layout('layouts.app')] class extends Component
                                     </p>
                                 </div>
                             </div>
+                            @if ($jarak !== null)
+                                <div class="mt-2 text-center">
+                                    <span class="text-[9px] font-semibold text-dark/50">Jarak: {{ $jarak }}m</span>
+                                </div>
+                            @endif
                             <div class="flex gap-2 mt-3 pt-3 border-t-3 border-dark/10">
                                 @if ($p->foto_check_in)
                                     <a href="{{ asset('storage/' . $p->foto_check_in) }}" target="_blank" class="flex-1 bg-secondary text-white border-2 border-dark py-1.5 flex items-center justify-center gap-1 text-[10px] font-bold uppercase shadow-[2px_2px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
@@ -329,6 +446,12 @@ new #[Layout('layouts.app')] class extends Component
                                     <a href="{{ asset('storage/' . $p->foto_check_out) }}" target="_blank" class="flex-1 bg-secondary text-white border-2 border-dark py-1.5 flex items-center justify-center gap-1 text-[10px] font-bold uppercase shadow-[2px_2px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                         Out
+                                    </a>
+                                @endif
+                                @if ($p->lat_check_in)
+                                    <a href="https://www.google.com/maps?q={{ $p->lat_check_in }},{{ $p->lng_check_in }}" target="_blank" class="flex-1 bg-dark text-white border-2 border-dark py-1.5 flex items-center justify-center gap-1 text-[10px] font-bold uppercase shadow-[2px_2px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                        GPS
                                     </a>
                                 @endif
                             </div>

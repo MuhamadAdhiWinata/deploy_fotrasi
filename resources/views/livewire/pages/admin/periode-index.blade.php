@@ -15,6 +15,9 @@ new #[Layout('layouts.app')] class extends Component
     public $nama = '';
     public $tanggal_mulai = '';
     public $tanggal_selesai = '';
+    public $latitude = '';
+    public $longitude = '';
+    public $radius_meters = 200;
 
     // Participant management
     public $kelolaPeriode = null;
@@ -36,7 +39,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public function resetForm()
     {
-        $this->reset(['nama', 'tanggal_mulai', 'tanggal_selesai', 'editId', 'showForm']);
+        $this->reset(['nama', 'tanggal_mulai', 'tanggal_selesai', 'latitude', 'longitude', 'radius_meters', 'editId', 'showForm']);
+        $this->radius_meters = 200;
     }
 
     public function buatBaru()
@@ -52,6 +56,9 @@ new #[Layout('layouts.app')] class extends Component
         $this->nama = $p->nama;
         $this->tanggal_mulai = $p->tanggal_mulai->format('Y-m-d');
         $this->tanggal_selesai = $p->tanggal_selesai->format('Y-m-d');
+        $this->latitude = $p->latitude ?? '';
+        $this->longitude = $p->longitude ?? '';
+        $this->radius_meters = $p->radius_meters ?? 200;
         $this->showForm = true;
     }
 
@@ -61,12 +68,18 @@ new #[Layout('layouts.app')] class extends Component
             'nama' => 'required|string|max:255',
             'tanggal_mulai' => 'required|date',
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'radius_meters' => 'nullable|integer|min:10|max:5000',
         ]);
 
         $data = [
             'nama' => $this->nama,
             'tanggal_mulai' => $this->tanggal_mulai,
             'tanggal_selesai' => $this->tanggal_selesai,
+            'latitude' => $this->latitude !== '' ? $this->latitude : null,
+            'longitude' => $this->longitude !== '' ? $this->longitude : null,
+            'radius_meters' => $this->radius_meters ?? 200,
         ];
 
         if ($this->editId) {
@@ -198,6 +211,27 @@ new #[Layout('layouts.app')] class extends Component
                         <input type="date" wire:model="tanggal_selesai" class="w-full border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary">
                         @error('tanggal_selesai') <span class="text-xs font-bold text-red-500">{{ $message }}</span> @enderror
                     </div>
+                </div>
+                <div class="border-t-3 border-dark/10 pt-3">
+                    <p class="text-[10px] font-extrabold uppercase text-dark/50 mb-3">Lokasi Sekolah (GPS Presensi)</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <x-input-label value="Latitude" />
+                            <input type="text" wire:model="latitude" placeholder="-7.1234567" class="w-full border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary">
+                            @error('latitude') <span class="text-xs font-bold text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <x-input-label value="Longitude" />
+                            <input type="text" wire:model="longitude" placeholder="112.3456789" class="w-full border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary">
+                            @error('longitude') <span class="text-xs font-bold text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <x-input-label value="Radius (meter)" />
+                            <input type="number" wire:model="radius_meters" min="10" max="5000" class="w-full border-3 border-dark p-2 text-sm font-bold shadow-[3px_3px_0px_0px_#1a1a1a] focus:outline-none focus:border-primary">
+                            @error('radius_meters') <span class="text-xs font-bold text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                    <p class="text-[9px] font-semibold text-dark/50 mt-1">Cari koordinat sekolah di <a href="https://www.google.com/maps" target="_blank" class="text-secondary underline">Google Maps</a>, klik kanan lokasi sekolah, pilih koordinat.</p>
                 </div>
                 <div class="flex gap-2 pt-2">
                     <x-primary-button type="submit">Simpan</x-primary-button>

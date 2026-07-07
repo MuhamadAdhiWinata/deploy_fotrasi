@@ -1,18 +1,16 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Livewire\Volt\Volt;
-use App\Models\User;
-use App\Models\Tugas;
+use App\Models\PengumpulanTugas;
 use App\Models\Periode;
 use App\Models\Presensi;
-use App\Models\PengumpulanTugas;
+use App\Models\Tugas;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Route;
+use Livewire\Volt\Volt;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 Route::redirect('/', '/login');
 
@@ -21,6 +19,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('siswa')->name('siswa.')->group(function () {
         Volt::route('/dashboard', 'pages.siswa.dashboard')->name('dashboard');
         Volt::route('/todo', 'pages.siswa.todo')->name('todo');
+        Volt::route('/presensi', 'pages.siswa.presensi')->name('presensi');
         Volt::route('/kaih', 'pages.siswa.kaih-harian')->name('kaih');
         Volt::route('/kaih/rekap', 'pages.siswa.kaih-rekap')->name('kaih.rekap');
     });
@@ -37,12 +36,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             $cari = request('cari');
 
             $siswa = User::where('role', 'siswa')
-                ->when($kelas, fn($q) => $q->where('kelas', $kelas))
-                ->when($cari, fn($q) => $q->where(function($q) {
+                ->when($kelas, fn ($q) => $q->where('kelas', $kelas))
+                ->when($cari, fn ($q) => $q->where(function ($q) {
                     $q->where('name', 'like', "%{$cari}%")
-                      ->orWhere('nis', 'like', "%{$cari}%");
+                        ->orWhere('nis', 'like', "%{$cari}%");
                 }))
-                ->when($periodeId, fn($q) => $q->where('periode_id', $periodeId))
+                ->when($periodeId, fn ($q) => $q->where('periode_id', $periodeId))
                 ->orderBy('name')
                 ->get();
 
@@ -69,7 +68,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->get()
                 ->groupBy('user_id');
 
-            $spreadsheet = new Spreadsheet();
+            $spreadsheet = new Spreadsheet;
 
             // Sheet 1: Data Siswa
             $sheet = $spreadsheet->getActiveSheet();
@@ -84,15 +83,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             }
             $row = 2;
             foreach ($siswa as $i => $s) {
-                $sheet->setCellValue('A' . $row, $i + 1);
-                $sheet->setCellValue('B' . $row, $s->nis);
-                $sheet->setCellValue('C' . $row, $s->name);
-                $sheet->setCellValue('D' . $row, $s->kelas);
+                $sheet->setCellValue('A'.$row, $i + 1);
+                $sheet->setCellValue('B'.$row, $s->nis);
+                $sheet->setCellValue('C'.$row, $s->name);
+                $sheet->setCellValue('D'.$row, $s->kelas);
                 $row++;
             }
 
             // Sheet 2: Rekap Presensi
-            if (!empty($dates)) {
+            if (! empty($dates)) {
                 $sheet2 = $spreadsheet->createSheet();
                 $sheet2->setTitle('Rekap Presensi');
                 $sheet2->setCellValue('A1', 'No');
@@ -105,22 +104,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     $colIdx++;
                     $colLetter = Coordinate::stringFromColumnIndex($colIdx);
                     $dateCols[$d] = $colLetter;
-                    $sheet2->setCellValue($colLetter . '1', Carbon::parse($d)->format('d/m'));
+                    $sheet2->setCellValue($colLetter.'1', Carbon::parse($d)->format('d/m'));
                 }
-                $sheet2->getStyle('A1:' . $colLetter . '1')->getFont()->setBold(true);
+                $sheet2->getStyle('A1:'.$colLetter.'1')->getFont()->setBold(true);
                 foreach (range('A', $colLetter) as $col) {
                     $sheet2->getColumnDimension($col)->setAutoSize(true);
                 }
 
                 $row = 2;
                 foreach ($siswa as $i => $s) {
-                    $sheet2->setCellValue('A' . $row, $i + 1);
-                    $sheet2->setCellValue('B' . $row, $s->nis);
-                    $sheet2->setCellValue('C' . $row, $s->name);
-                    $sheet2->setCellValue('D' . $row, $s->kelas);
+                    $sheet2->setCellValue('A'.$row, $i + 1);
+                    $sheet2->setCellValue('B'.$row, $s->nis);
+                    $sheet2->setCellValue('C'.$row, $s->name);
+                    $sheet2->setCellValue('D'.$row, $s->kelas);
 
                     $userPresensi = $presensi[$s->id] ?? collect();
-                    $presensiByDate = $userPresensi->keyBy(fn($p) => $p->tanggal->format('Y-m-d'));
+                    $presensiByDate = $userPresensi->keyBy(fn ($p) => $p->tanggal->format('Y-m-d'));
 
                     foreach ($dates as $d) {
                         $col = $dateCols[$d];
@@ -128,10 +127,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
                         if ($p) {
                             $ci = $p->check_in?->format('H:i') ?? '-';
                             $co = $p->check_out?->format('H:i') ?? '-';
-                            $sheet2->setCellValue($col . $row, "In: {$ci}\nOut: {$co}");
-                            $sheet2->getStyle($col . $row)->getAlignment()->setWrapText(true);
+                            $sheet2->setCellValue($col.$row, "In: {$ci}\nOut: {$co}");
+                            $sheet2->getStyle($col.$row)->getAlignment()->setWrapText(true);
                         } else {
-                            $sheet2->setCellValue($col . $row, '—');
+                            $sheet2->setCellValue($col.$row, '—');
                         }
                     }
                     $row++;
@@ -150,25 +149,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 $tugasCols = [];
                 foreach ($tugasList as $t) {
                     $colIdx++;
-                    $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx);
+                    $colLetter = Coordinate::stringFromColumnIndex($colIdx);
                     $tugasCols[$t->id] = $colLetter;
                     $label = $t->judul;
                     if ($t->deadline && now()->greaterThan($t->deadline)) {
                         $label .= ' (L)';
                     }
-                    $sheet3->setCellValue($colLetter . '1', $label);
+                    $sheet3->setCellValue($colLetter.'1', $label);
                 }
-                $sheet3->getStyle('A1:' . $colLetter . '1')->getFont()->setBold(true);
+                $sheet3->getStyle('A1:'.$colLetter.'1')->getFont()->setBold(true);
                 foreach (range('A', $colLetter) as $col) {
                     $sheet3->getColumnDimension($col)->setAutoSize(true);
                 }
 
                 $row = 2;
                 foreach ($siswa as $i => $s) {
-                    $sheet3->setCellValue('A' . $row, $i + 1);
-                    $sheet3->setCellValue('B' . $row, $s->nis);
-                    $sheet3->setCellValue('C' . $row, $s->name);
-                    $sheet3->setCellValue('D' . $row, $s->kelas);
+                    $sheet3->setCellValue('A'.$row, $i + 1);
+                    $sheet3->setCellValue('B'.$row, $s->nis);
+                    $sheet3->setCellValue('C'.$row, $s->name);
+                    $sheet3->setCellValue('D'.$row, $s->kelas);
 
                     $userPengumpulan = $pengumpulan[$s->id] ?? collect();
                     $pengByTugas = $userPengumpulan->keyBy('tugas_id');
@@ -178,10 +177,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
                         $sub = $pengByTugas->get($t->id);
                         if ($sub) {
                             $txt = '✓ Dikumpulkan';
-                            if ($sub->nilai !== null) $txt .= ' (Nilai: ' . $sub->nilai . ')';
-                            $sheet3->setCellValue($col . $row, $txt);
+                            if ($sub->nilai !== null) {
+                                $txt .= ' (Nilai: '.$sub->nilai.')';
+                            }
+                            $sheet3->setCellValue($col.$row, $txt);
                         } else {
-                            $sheet3->setCellValue($col . $row, '—');
+                            $sheet3->setCellValue($col.$row, '—');
                         }
                     }
                     $row++;
@@ -189,7 +190,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             }
 
             $writer = new Xlsx($spreadsheet);
-            $filename = 'export-siswa-' . now()->format('Y-m-d-His') . '.xlsx';
+            $filename = 'export-siswa-'.now()->format('Y-m-d-His').'.xlsx';
 
             ob_start();
             $writer->save('php://output');
@@ -197,7 +198,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             return response($content, 200, [
                 'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             ]);
         })->name('siswa.export');
         Volt::route('/siswa/{nis}', 'pages.admin.siswa-detail')->name('siswa.detail');
