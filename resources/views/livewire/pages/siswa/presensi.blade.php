@@ -189,17 +189,18 @@ new #[Layout('layouts.app')] class extends Component
 
                     <button x-show="!loading"
                             x-on:click.prevent="
+                                if (loading) return;
                                 loading = true;
                                 error = '';
                                 gpsStep = 'Mendapatkan lokasi GPS... Izinkan akses lokasi jika diminta.';
                                 navigator.geolocation.getCurrentPosition(
                                     (pos) => {
                                         gpsStep = 'GPS dapat, mengirim presensi...';
-                                        $wire.{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}(pos.coords.latitude, pos.coords.longitude, Math.round(pos.coords.accuracy));
+                                        $wire.{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}(pos.coords.latitude, pos.coords.longitude, Math.round(pos.coords.accuracy)).then(() => loading = false);
                                     },
                                     (err) => {
                                         gpsStep = 'GPS tidak tersedia, menggunakan lokasi dari foto...';
-                                        $wire.{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}(null, null, null);
+                                        $wire.{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}(null, null, null).then(() => loading = false);
                                     },
                                     { enableHighAccuracy: true, timeout: 15000 }
                                 );

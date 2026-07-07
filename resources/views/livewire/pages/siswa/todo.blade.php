@@ -7,6 +7,8 @@ use Livewire\WithPagination;
 use App\Models\Presensi;
 use App\Models\Tugas;
 use App\Models\PengumpulanTugas;
+use App\Models\Periode;
+use App\Services\GpsService;
 
 new #[Layout('layouts.app')] class extends Component
 {
@@ -65,7 +67,7 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     // Presensi actions
-    public function checkIn()
+    public function checkIn($lat = null, $lng = null, $accuracy = null)
     {
         $periode = auth()->user()->periode;
         if ($periode && $periode->tanggal_mulai && $periode->tanggal_selesai && (today()->lt($periode->tanggal_mulai) || today()->gt($periode->tanggal_selesai))) {
@@ -76,21 +78,35 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         $this->validate(['foto' => 'required|image|mimes:jpg,jpeg,png|max:2048']);
-        $path = $this->foto->store('presensi', 'public');
 
-        Presensi::create([
+        $path = $this->foto->store('presensi', 'public');
+        $exif = GpsService::ekstrakExifGps($this->foto->getRealPath());
+
+        $data = [
             'user_id' => auth()->id(),
             'periode_id' => auth()->user()->periode_id,
             'tanggal' => today(),
             'check_in' => now(),
             'foto_check_in' => $path,
-        ]);
+            'exif_lat_in' => $exif['lat'] ?? null,
+            'exif_lng_in' => $exif['lng'] ?? null,
+            'ip_address' => request()->ip(),
+            'lokasi_valid' => $lat !== null ? true : ($exif !== null ? true : null),
+        ];
+
+        if ($lat !== null) {
+            $data['lat_check_in'] = $lat;
+            $data['lng_check_in'] = $lng;
+            $data['gps_accuracy_in'] = $accuracy;
+        }
+
+        Presensi::create($data);
 
         $this->foto = null;
         $this->loadPresensi();
     }
 
-    public function checkOut()
+    public function checkOut($lat = null, $lng = null, $accuracy = null)
     {
         $periode = auth()->user()->periode;
         if ($periode && $periode->tanggal_mulai && $periode->tanggal_selesai && (today()->lt($periode->tanggal_mulai) || today()->gt($periode->tanggal_selesai))) {
@@ -101,12 +117,26 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         $this->validate(['foto' => 'required|image|mimes:jpg,jpeg,png|max:2048']);
-        $path = $this->foto->store('presensi', 'public');
 
-        $this->presensiHariIni->update([
+        $path = $this->foto->store('presensi', 'public');
+        $exif = GpsService::ekstrakExifGps($this->foto->getRealPath());
+
+        $data = [
             'check_out' => now(),
             'foto_check_out' => $path,
-        ]);
+            'exif_lat_out' => $exif['lat'] ?? null,
+            'exif_lng_out' => $exif['lng'] ?? null,
+            'ip_address' => request()->ip(),
+            'lokasi_valid' => $lat !== null ? true : ($exif !== null ? true : null),
+        ];
+
+        if ($lat !== null) {
+            $data['lat_check_out'] = $lat;
+            $data['lng_check_out'] = $lng;
+            $data['gps_accuracy_out'] = $accuracy;
+        }
+
+        $this->presensiHariIni->update($data);
 
         $this->foto = null;
         $this->loadPresensi();
@@ -230,12 +260,24 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
                 @endif
 
-                <button wire:click="{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}"
-                        wire:loading.attr="disabled"
-                        wire:target="checkIn,checkOut,foto"
-                        class="bg-primary text-white border-3 border-dark px-6 py-2 font-bold text-xs uppercase shadow-[4px_4px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_#1a1a1a] transition-all disabled:opacity-50">
-                    {{ $mode === 'check_in' ? 'Check In' : 'Check Out' }}
-                </button>
+                <div x-data="{ loading: false }">
+                    <button x-show="!loading"
+                            x-on:click.prevent="
+                                if (loading) return;
+                                loading = true;
+                                navigator.geolocation.getCurrentPosition(
+                                    (pos) => $wire.{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}(pos.coords.latitude, pos.coords.longitude, Math.round(pos.coords.accuracy)).then(() => loading = false),
+                                    (err) => $wire.{{ $mode === 'check_in' ? 'checkIn' : 'checkOut' }}(null, null, null).then(() => loading = false),
+                                    { enableHighAccuracy: true, timeout: 10000 }
+                                );
+                            "
+                            class="bg-primary text-white border-3 border-dark px-6 py-2 font-bold text-xs uppercase shadow-[4px_4px_0px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_#1a1a1a] transition-all w-full">
+                        {{ $mode === 'check_in' ? 'Check In' : 'Check Out' }}
+                    </button>
+                    <button x-show="loading" disabled class="bg-gray-400 text-white border-3 border-dark px-6 py-2 font-bold text-xs uppercase opacity-50 w-full">
+                        {{ $mode === 'check_in' ? 'Check In' : 'Check Out' }}...
+                    </button>
+                </div>
             </div>
         @endif
 

@@ -70,6 +70,10 @@ class GpsService
             return null;
         }
 
+        if (! function_exists('exif_read_data')) {
+            return null;
+        }
+
         $exif = @exif_read_data($filePath, 'EXIF');
 
         if ($exif === false) {
